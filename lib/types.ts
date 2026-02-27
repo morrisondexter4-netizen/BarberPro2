@@ -1,27 +1,43 @@
-export type Service = "Haircut" | "Fade" | "Beard Trim" | "Haircut + Beard";
+export type Service = {
+  id: string;
+  name: string;
+  durationMinutes: number; // placeholder, will be set in Shop Settings later
+};
 
 export type Barber = {
   id: string;
   name: string;
-  color: string; // tailwind bg color class e.g. "bg-blue-500"
+  color: string; // tailwind color name e.g. "blue", "emerald", "violet"
+  workDays: number[]; // 0=Sun, 1=Mon, ... 6=Sat
+  lunchBreak?: {
+    startTime: string; // "HH:MM" 24hr
+    endTime: string;
+  };
 };
 
 export type QueueEntry = {
   id: string;
-  name: string;
-  service: Service;
+  clientName: string;
+  serviceId: string;
   waitMinutes: number;
-  barberId: string; // which barber they're assigned to
-  position: number; // 1 = first in line
+  barberId: string;
+  position: number;
+  joinedAt: string; // ISO timestamp
 };
 
 export type Appointment = {
   id: string;
-  name: string;
-  service: Service;
+  clientName: string;
+  serviceId: string;
   barberId: string;
   startTime: string; // "HH:MM" 24hr
   endTime: string;   // "HH:MM" 24hr
   date: string;      // "YYYY-MM-DD"
-  fromQueue?: boolean; // true if dragged in from queue
+  status: "scheduled" | "checked-in" | "no-show" | "paid";
+  fromQueue?: boolean;
+};
+
+export type DashboardView = {
+  barberId: string;
+  date: string;
 };

@@ -1,27 +1,54 @@
-import { Barber, QueueEntry, Appointment } from "./types";
+import { Barber, Service, QueueEntry, Appointment } from "./types";
 
-export const BARBERS: Barber[] = [
-  { id: "b1", name: "Marcus", color: "bg-blue-500" },
-  { id: "b2", name: "Devon", color: "bg-emerald-500" },
-  { id: "b3", name: "Jaylen", color: "bg-violet-500" },
+export const SERVICES: Service[] = [
+  { id: "s1", name: "Haircut", durationMinutes: 30 },
+  { id: "s2", name: "Fade", durationMinutes: 45 },
+  { id: "s3", name: "Beard Trim", durationMinutes: 20 },
+  { id: "s4", name: "Haircut + Beard", durationMinutes: 60 },
 ];
 
-// Today's date as YYYY-MM-DD
+export const BARBERS: Barber[] = [
+  {
+    id: "b1",
+    name: "Marcus",
+    color: "blue",
+    workDays: [1, 2, 3, 4, 5],
+    lunchBreak: { startTime: "12:00", endTime: "13:00" },
+  },
+  {
+    id: "b2",
+    name: "Devon",
+    color: "emerald",
+    workDays: [2, 3, 4, 5, 6],
+    lunchBreak: { startTime: "12:30", endTime: "13:30" },
+  },
+  {
+    id: "b3",
+    name: "Jaylen",
+    color: "violet",
+    workDays: [1, 3, 4, 5, 6],
+    lunchBreak: { startTime: "13:00", endTime: "14:00" },
+  },
+];
+
 const today = new Date().toISOString().split("T")[0];
 
 export const INITIAL_QUEUE: QueueEntry[] = [
-  { id: "q1", name: "Marcus T.", service: "Fade", waitMinutes: 5, barberId: "b1", position: 1 },
-  { id: "q2", name: "DeShawn K.", service: "Haircut + Beard", waitMinutes: 18, barberId: "b2", position: 2 },
-  { id: "q3", name: "Jordan M.", service: "Haircut", waitMinutes: 32, barberId: "b1", position: 3 },
-  { id: "q4", name: "Tyler R.", service: "Beard Trim", waitMinutes: 45, barberId: "b3", position: 4 },
-  { id: "q5", name: "Brendan S.", service: "Fade", waitMinutes: 58, barberId: "b2", position: 5 },
+  { id: "q1", clientName: "Marcus T.", serviceId: "s2", waitMinutes: 5,  barberId: "b1", position: 1, joinedAt: new Date().toISOString() },
+  { id: "q2", clientName: "DeShawn K.", serviceId: "s4", waitMinutes: 18, barberId: "b1", position: 2, joinedAt: new Date().toISOString() },
+  { id: "q3", clientName: "Jordan M.", serviceId: "s1", waitMinutes: 32, barberId: "b2", position: 1, joinedAt: new Date().toISOString() },
+  { id: "q4", clientName: "Tyler R.", serviceId: "s3", waitMinutes: 45, barberId: "b2", position: 2, joinedAt: new Date().toISOString() },
+  { id: "q5", clientName: "Brendan S.", serviceId: "s2", waitMinutes: 58, barberId: "b3", position: 1, joinedAt: new Date().toISOString() },
+  { id: "q6", clientName: "Chris W.", serviceId: "s1", waitMinutes: 70, barberId: "b3", position: 2, joinedAt: new Date().toISOString() },
 ];
 
 export const INITIAL_APPOINTMENTS: Appointment[] = [
-  { id: "a1", name: "Chris P.", service: "Haircut", barberId: "b1", startTime: "09:00", endTime: "09:30", date: today },
-  { id: "a2", name: "Antoine L.", service: "Fade", barberId: "b2", startTime: "10:00", endTime: "10:45", date: today },
-  { id: "a3", name: "Kevin W.", service: "Haircut + Beard", barberId: "b3", startTime: "11:00", endTime: "12:00", date: today },
-  { id: "a4", name: "Ray J.", service: "Beard Trim", barberId: "b1", startTime: "13:00", endTime: "13:30", date: today },
-  { id: "a5", name: "Open Slot", service: "Haircut", barberId: "b2", startTime: "14:00", endTime: "14:30", date: today },
-  { id: "a6", name: "Open Slot", service: "Haircut", barberId: "b3", startTime: "14:30", endTime: "15:00", date: today },
+  { id: "a1", clientName: "Chris P.",   serviceId: "s1", barberId: "b1", startTime: "09:00", endTime: "09:30", date: today, status: "scheduled" },
+  { id: "a2", clientName: "Antoine L.", serviceId: "s2", barberId: "b1", startTime: "10:00", endTime: "10:45", date: today, status: "scheduled" },
+  { id: "a3", clientName: "Ray J.",     serviceId: "s3", barberId: "b1", startTime: "14:00", endTime: "14:20", date: today, status: "scheduled" },
+  { id: "a4", clientName: "Open Slot",  serviceId: "s1", barberId: "b1", startTime: "15:00", endTime: "15:30", date: today, status: "scheduled" },
+  { id: "a5", clientName: "Kevin W.",   serviceId: "s4", barberId: "b2", startTime: "09:00", endTime: "10:00", date: today, status: "scheduled" },
+  { id: "a6", clientName: "Open Slot",  serviceId: "s2", barberId: "b2", startTime: "11:00", endTime: "11:45", date: today, status: "scheduled" },
+  { id: "a7", clientName: "Malik B.",   serviceId: "s1", barberId: "b3", startTime: "10:00", endTime: "10:30", date: today, status: "scheduled" },
+  { id: "a8", clientName: "Open Slot",  serviceId: "s2", barberId: "b3", startTime: "13:00", endTime: "13:45", date: today, status: "scheduled" },
 ];

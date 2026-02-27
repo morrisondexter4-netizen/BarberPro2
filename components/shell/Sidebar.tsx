@@ -7,10 +7,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   return (
     <aside className="hidden md:flex flex-col w-56 bg-gray-50 border-r border-gray-200 shrink-0">
-      <div className="p-4 font-semibold text-sm text-gray-500 uppercase tracking-wider">
-        Menu
-      </div>
-      <nav className="flex flex-col gap-1 px-2">
+      <nav className="flex flex-col gap-1 px-2 pt-3">
         {NAV_ITEMS.map((item) => (
           <Link
             key={item.href}
