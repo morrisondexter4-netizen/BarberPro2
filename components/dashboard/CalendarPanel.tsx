@@ -118,7 +118,7 @@ export default function CalendarPanel({
   dropReject,
 }: Props) {
   const [dragOverTime, setDragOverTime] = useState<string | null>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
 
   const { setNodeRef, isOver } = useDroppable({
     id: `timeline-${barber.id}`,
