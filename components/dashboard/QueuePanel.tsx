@@ -14,14 +14,14 @@ type Props = {
 function QueueCard({
   entry,
   serviceName,
-  isDraggable,
+  isNext,
 }: {
   entry: QueueEntry;
   serviceName: string;
-  isDraggable: boolean;
+  isNext: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: entry.id, disabled: !isDraggable });
+    useDraggable({ id: entry.id });
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -31,31 +31,30 @@ function QueueCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`bg-white rounded-xl border p-3 mb-2 transition-all duration-150 ${
-        isDraggable
-          ? "border-l-4 border-l-amber-400 border-gray-200 shadow-md cursor-grab active:cursor-grabbing"
+      className={`bg-white rounded-xl border p-3 mb-2 transition-all duration-150 cursor-grab active:cursor-grabbing ${
+        isNext
+          ? "border-l-4 border-l-amber-400 border-gray-200 shadow-md"
           : "border-gray-200"
       } ${isDragging ? "opacity-50 shadow-lg z-50 relative" : ""}`}
-      {...(isDraggable ? { ...attributes, ...listeners } : {})}
+      {...attributes}
+      {...listeners}
     >
       <div className="flex items-start gap-2">
-        {isDraggable && (
-          <div className="flex-shrink-0 text-gray-300 mt-0.5 select-none">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="currentColor"
-            >
-              <circle cx="5" cy="2" r="1.5" />
-              <circle cx="11" cy="2" r="1.5" />
-              <circle cx="5" cy="7" r="1.5" />
-              <circle cx="11" cy="7" r="1.5" />
-              <circle cx="5" cy="12" r="1.5" />
-              <circle cx="11" cy="12" r="1.5" />
-            </svg>
-          </div>
-        )}
+        <div className="flex-shrink-0 text-gray-300 mt-0.5 select-none">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+          >
+            <circle cx="5" cy="2" r="1.5" />
+            <circle cx="11" cy="2" r="1.5" />
+            <circle cx="5" cy="7" r="1.5" />
+            <circle cx="11" cy="7" r="1.5" />
+            <circle cx="5" cy="12" r="1.5" />
+            <circle cx="11" cy="12" r="1.5" />
+          </svg>
+        </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm text-gray-900 truncate">
             {entry.clientName}
@@ -66,11 +65,9 @@ function QueueCard({
           <p className="text-xs text-gray-500 mt-1">
             ⏱ {entry.waitMinutes} min
           </p>
-          {isDraggable && (
-            <p className="text-xs text-gray-400 mt-1.5">
-              Drag to schedule →
-            </p>
-          )}
+          <p className="text-xs text-gray-400 mt-1.5">
+            Drag to schedule →
+          </p>
         </div>
       </div>
     </div>
@@ -116,7 +113,7 @@ export default function QueuePanel({
             key={entry.id}
             entry={entry}
             serviceName={serviceMap[entry.serviceId] ?? "Unknown"}
-            isDraggable={entry.position === 1}
+            isNext={entry.position === 1}
           />
         ))}
 
