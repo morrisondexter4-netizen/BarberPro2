@@ -1,32 +1,145 @@
-import PageContainer from "@/components/ui/PageContainer";
-import Link from "next/link";
+"use client";
+
+import { useState, useMemo } from "react";
+import { useBarberPro } from "@/lib/barberpro-context";
+import {
+  filterByBarber,
+  filterByTimePeriod,
+  calculateMetrics,
+  TimePeriod,
+} from "@/components/metrics/metrics-utils";
+import MetricCard from "@/components/metrics/MetricCard";
+import BarberFilter from "@/components/metrics/BarberFilter";
+import TimePeriodToggle from "@/components/metrics/TimePeriodToggle";
+
+function DollarIcon() {
+  return (
+    <svg
+      className="w-5 h-5 text-emerald-600"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+      />
+    </svg>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg
+      className="w-5 h-5 text-blue-600"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5"
+      />
+    </svg>
+  );
+}
+
+function UsersIcon() {
+  return (
+    <svg
+      className="w-5 h-5 text-violet-600"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z"
+      />
+    </svg>
+  );
+}
+
+function AlertIcon() {
+  return (
+    <svg
+      className="w-5 h-5 text-rose-600"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={2}
+      stroke="currentColor"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z"
+      />
+    </svg>
+  );
+}
 
 export default function OverviewPage() {
+  const [selectedBarberId, setSelectedBarberId] = useState<string>("all");
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>("week");
+  const { appointments } = useBarberPro();
+
+  const metrics = useMemo(() => {
+    const byBarber = filterByBarber(appointments, selectedBarberId);
+    const byTime = filterByTimePeriod(byBarber, timePeriod);
+    return calculateMetrics(byTime);
+  }, [appointments, selectedBarberId, timePeriod]);
+
+  const periodLabel =
+    timePeriod === "day" ? "today" : timePeriod === "week" ? "this week" : "this month";
+
   return (
-    <PageContainer title="Overview">
-      <p className="text-gray-500 text-sm mb-6">
-        Welcome to BarberPro. Use the menu to navigate.
-      </p>
-      <div className="flex flex-wrap gap-3">
-        <Link
-          href="/dashboard"
-          className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800"
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/customers"
-          className="px-4 py-2 bg-gray-100 text-gray-900 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-200"
-        >
-          Customers
-        </Link>
-        <Link
-          href="/schedule"
-          className="px-4 py-2 bg-gray-100 text-gray-900 text-sm font-medium rounded-lg border border-gray-200 hover:bg-gray-200"
-        >
-          Schedule
-        </Link>
+    <div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Metrics</h1>
+        <p className="text-sm text-gray-500 mt-1">Business overview</p>
       </div>
-    </PageContainer>
+
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <BarberFilter value={selectedBarberId} onChange={setSelectedBarberId} />
+        <TimePeriodToggle value={timePeriod} onChange={setTimePeriod} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <MetricCard
+          label="Revenue"
+          value={`$${metrics.revenue.toLocaleString()}`}
+          subtitle={`From paid appointments ${periodLabel}`}
+          icon={<DollarIcon />}
+          accentColor="bg-emerald-50"
+        />
+        <MetricCard
+          label="Appointments"
+          value={String(metrics.totalAppointments)}
+          subtitle={`Total booked ${periodLabel}`}
+          icon={<CalendarIcon />}
+          accentColor="bg-blue-50"
+        />
+        <MetricCard
+          label="Clients Served"
+          value={String(metrics.clientsServed)}
+          subtitle={`Completed & paid ${periodLabel}`}
+          icon={<UsersIcon />}
+          accentColor="bg-violet-50"
+        />
+        <MetricCard
+          label="No-Shows"
+          value={String(metrics.noShows)}
+          subtitle={`Missed appointments ${periodLabel}`}
+          icon={<AlertIcon />}
+          accentColor="bg-rose-50"
+        />
+      </div>
+    </div>
   );
 }

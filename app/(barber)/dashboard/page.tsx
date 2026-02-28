@@ -20,6 +20,7 @@ import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
 import QueuePanel from "@/components/dashboard/QueuePanel";
 import AppointmentPopup from "@/components/dashboard/AppointmentPopup";
+import DragConfirmPopup from "@/components/dashboard/DragConfirmPopup";
 
 const BARBERS_STORAGE_KEY = "barberpro.shopSettings.barbers";
 
@@ -66,6 +67,10 @@ export default function DashboardPage() {
   const [selectedBarberId, setSelectedBarberId] = useState(BARBERS[0].id);
   const [activeAppointment, setActiveAppointment] =
     useState<Appointment | null>(null);
+  const [pendingAppointment, setPendingAppointment] = useState<{
+    appointment: Appointment;
+    queueEntryId: string;
+  } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -83,12 +88,21 @@ export default function DashboardPage() {
     .filter((e) => e.barberId === selectedBarberId)
     .sort((a, b) => a.position - b.position);
 
-  const barberAppointments = appointments.filter(
-    (a) =>
-      a.barberId === selectedBarberId &&
-      a.date === today &&
-      a.status !== "cancelled",
-  );
+  const barberAppointments = (() => {
+    const base = appointments.filter(
+      (a) =>
+        a.barberId === selectedBarberId &&
+        a.date === today &&
+        a.status !== "cancelled",
+    );
+    if (
+      pendingAppointment &&
+      pendingAppointment.appointment.barberId === selectedBarberId
+    ) {
+      return [...base, pendingAppointment.appointment];
+    }
+    return base;
+  })();
 
   const isRescheduleDragging =
     activeDragId !== null && activeDragId.startsWith("reschedule-");
@@ -246,8 +260,7 @@ export default function DashboardPage() {
       status: "scheduled",
       fromQueue: true,
     };
-    addAppointment(newApt);
-    removeFromQueue(activeId);
+    setPendingAppointment({ appointment: newApt, queueEntryId: activeId });
   }
 
   function handleStatusChange(
@@ -312,6 +325,29 @@ export default function DashboardPage() {
             )}
             onStatusChange={handleStatusChange}
             onClose={() => setActiveAppointment(null)}
+          />
+        )}
+
+        {/* Drag confirm / undo popup */}
+        {pendingAppointment && (
+          <DragConfirmPopup
+            appointment={pendingAppointment.appointment}
+            barber={
+              barbers.find(
+                (b) => b.id === pendingAppointment.appointment.barberId,
+              ) ?? selectedBarber
+            }
+            service={SERVICES.find(
+              (s) => s.id === pendingAppointment.appointment.serviceId,
+            )}
+            onConfirm={() => {
+              addAppointment(pendingAppointment.appointment);
+              removeFromQueue(pendingAppointment.queueEntryId);
+              setPendingAppointment(null);
+            }}
+            onUndo={() => {
+              setPendingAppointment(null);
+            }}
           />
         )}
       </div>
