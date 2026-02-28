@@ -13,21 +13,21 @@ export const BARBERS: Barber[] = [
     name: "Marcus",
     color: "blue",
     workDays: [1, 2, 3, 4, 5],
-    lunchBreak: { startTime: "12:00", endTime: "13:00" },
+    lunchBreak: { start: "12:00", end: "13:00" },
   },
   {
     id: "b2",
     name: "Devon",
     color: "emerald",
     workDays: [2, 3, 4, 5, 6],
-    lunchBreak: { startTime: "12:30", endTime: "13:30" },
+    lunchBreak: { start: "13:00", end: "13:30" },
   },
   {
     id: "b3",
     name: "Jaylen",
     color: "violet",
     workDays: [1, 3, 4, 5, 6],
-    lunchBreak: { startTime: "13:00", endTime: "14:00" },
+    lunchBreak: { start: "12:30", end: "13:15" },
   },
 ];
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -16,11 +16,25 @@ import {
   INITIAL_QUEUE,
   INITIAL_APPOINTMENTS,
 } from "@/lib/mock-data";
-import { QueueEntry, Appointment } from "@/lib/types";
+import { Barber, QueueEntry, Appointment } from "@/lib/types";
 import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
 import QueuePanel from "@/components/dashboard/QueuePanel";
 import AppointmentPopup from "@/components/dashboard/AppointmentPopup";
+
+const BARBERS_STORAGE_KEY = "barberpro.shopSettings.barbers";
+
+function loadBarbers(): Barber[] {
+  if (typeof window === "undefined") return BARBERS;
+  try {
+    const raw = localStorage.getItem(BARBERS_STORAGE_KEY);
+    if (!raw) return BARBERS;
+    const parsed = JSON.parse(raw) as Barber[];
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : BARBERS;
+  } catch {
+    return BARBERS;
+  }
+}
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -36,7 +50,12 @@ function minutesToTime(minutes: number): string {
 export default function DashboardPage() {
   const today = new Date().toISOString().split("T")[0];
 
-  const [selectedBarberId, setSelectedBarberId] = useState(BARBERS[0].id);
+  const [barbers, setBarbers] = useState<Barber[]>(BARBERS);
+  useEffect(() => {
+    setBarbers(loadBarbers());
+  }, []);
+
+  const [selectedBarberId, setSelectedBarberId] = useState(barbers[0]?.id ?? BARBERS[0].id);
   const [queue, setQueue] = useState<QueueEntry[]>(INITIAL_QUEUE);
   const [appointments, setAppointments] =
     useState<Appointment[]>(INITIAL_APPOINTMENTS);
@@ -53,7 +72,7 @@ export default function DashboardPage() {
   } | null>(null);
   const dragTimeRef = useRef<string | null>(null);
 
-  const selectedBarber = BARBERS.find((b) => b.id === selectedBarberId)!;
+  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0]!;
 
   const barberQueue = queue
     .filter((e) => e.barberId === selectedBarberId)
@@ -136,10 +155,10 @@ export default function DashboardPage() {
         return newStartMin < aEnd && newEndMin > aStart;
       });
 
-      const targetBarber = BARBERS.find((b) => b.id === barberId);
+      const targetBarber = barbers.find((b) => b.id === barberId);
       if (!hasOverlap && targetBarber?.lunchBreak) {
-        const lStart = timeToMinutes(targetBarber.lunchBreak.startTime);
-        const lEnd = timeToMinutes(targetBarber.lunchBreak.endTime);
+        const lStart = timeToMinutes(targetBarber.lunchBreak.start);
+        const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
         if (newStartMin < lEnd && newEndMin > lStart) {
           hasOverlap = true;
         }
@@ -194,10 +213,10 @@ export default function DashboardPage() {
       return newStartMin < aEnd && newEndMin > aStart;
     });
 
-    const targetBarber = BARBERS.find((b) => b.id === barberId);
+    const targetBarber = barbers.find((b) => b.id === barberId);
     if (!hasOverlap && targetBarber?.lunchBreak) {
-      const lStart = timeToMinutes(targetBarber.lunchBreak.startTime);
-      const lEnd = timeToMinutes(targetBarber.lunchBreak.endTime);
+      const lStart = timeToMinutes(targetBarber.lunchBreak.start);
+      const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
       if (newStartMin < lEnd && newEndMin > lStart) {
         hasOverlap = true;
       }
@@ -255,7 +274,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100">
           <span className="text-sm font-medium text-gray-500">Viewing:</span>
           <BarberSwitcher
-            barbers={BARBERS}
+            barbers={barbers}
             selectedId={selectedBarberId}
             onChange={setSelectedBarberId}
           />
