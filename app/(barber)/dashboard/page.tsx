@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { DndContext, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import {
+  DndContext,
+  DragEndEvent,
+  DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import {
   BARBERS,
   SERVICES,
@@ -35,6 +43,10 @@ export default function DashboardPage() {
   const [activeAppointment, setActiveAppointment] =
     useState<Appointment | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
   const [dropReject, setDropReject] = useState<{
     time: string;
     durationMinutes: number;
@@ -237,7 +249,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
         {/* Barber Switcher Bar */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100">
