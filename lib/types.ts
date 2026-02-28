@@ -9,10 +9,7 @@ export type Barber = {
   name: string;
   color: string; // tailwind color name e.g. "blue", "emerald", "violet"
   workDays: number[]; // 0=Sun, 1=Mon, ... 6=Sat
-  lunchBreak?: {
-    startTime: string; // "HH:MM" 24hr
-    endTime: string;
-  };
+  lunchBreak?: { start: string; end: string }; // "HH:MM" 24-hour
 };
 
 export type QueueEntry = {

@@ -1,4 +1,5 @@
-import PageContainer from "@/components/ui/PageContainer";
-export default function ShopSettingsPage() {
-  return <PageContainer title="Shop Settings" />;
+import ShopSettingsPage from "@/components/shop-settings/ShopSettingsPage";
+
+export default function ShopSettingsRoute() {
+  return <ShopSettingsPage />;
 }

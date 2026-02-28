@@ -174,8 +174,8 @@ export default function SchedulePage() {
 
     const targetBarber = BARBERS.find((b) => b.id === targetBarberId);
     if (!hasOverlap && targetBarber?.lunchBreak) {
-      const lStart = timeToMinutes(targetBarber.lunchBreak.startTime);
-      const lEnd = timeToMinutes(targetBarber.lunchBreak.endTime);
+      const lStart = timeToMinutes(targetBarber.lunchBreak.start);
+      const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
       if (newStartMin < lEnd && newEndMin > lStart) {
         hasOverlap = true;
       }
