@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { BARBERS, SERVICES, INITIAL_APPOINTMENTS } from "@/lib/mock-data";
+import { BARBERS, SERVICES } from "@/lib/mock-data";
 import { Appointment } from "@/lib/types";
+import { useBarberPro } from "@/lib/barberpro-context";
 import { BARBER_COLOR_MAP } from "@/lib/barber-colors";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
 import ScheduleAppointmentPopup from "@/components/schedule/ScheduleAppointmentPopup";
@@ -15,15 +16,16 @@ export default function SchedulePage() {
   });
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+
+  const { appointments: allAppointments, updateAppointmentStatus, cancelAppointment } = useBarberPro();
 
   const handleStatusChange = (id: string, status: Appointment["status"]) => {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status } : a))
-    );
+    if (status === "cancelled") {
+      cancelAppointment(id);
+    } else {
+      updateAppointmentStatus(id, status);
+    }
   };
-
-  const allAppointments = appointments;
 
   const getWeekDates = (offset: number): string[] => {
     const now = new Date();
