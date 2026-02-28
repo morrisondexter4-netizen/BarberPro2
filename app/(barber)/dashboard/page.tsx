@@ -252,6 +252,8 @@ export default function DashboardPage() {
     const newApt: Appointment = {
       id: `apt-${Date.now()}`,
       clientName: entry.clientName,
+      clientPhone: entry.clientPhone ?? "",
+      clientEmail: entry.clientEmail ?? "",
       serviceId: entry.serviceId,
       barberId,
       startTime: dropTime,

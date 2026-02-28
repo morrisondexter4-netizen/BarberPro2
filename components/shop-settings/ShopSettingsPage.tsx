@@ -13,10 +13,15 @@ import {
   type Service,
   type DayKey,
 } from "./types";
-import { BARBERS } from "@/lib/mock-data";
 import type { Barber as LibBarber } from "@/lib/types";
-
-const STORAGE_KEY = "barberpro.shopSettings.barbers";
+import {
+  loadBarbers,
+  saveBarbers,
+  loadServices,
+  saveServices,
+  loadShopSettings,
+  saveShopSettings,
+} from "@/lib/settings";
 
 const DAY_KEY_TO_NUM: Record<DayKey, number> = {
   Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 0,
@@ -31,8 +36,8 @@ function libBarberToLocal(lib: LibBarber): Barber {
     name: lib.name,
     color: lib.color as Barber["color"],
     workingDays: lib.workDays.map((n) => DAY_NUM_TO_KEY[n]).filter(Boolean),
-    startTime: "09:00",
-    endTime: "18:00",
+    startTime: lib.startTime ?? "09:00",
+    endTime: lib.endTime ?? "18:00",
     lunchEnabled: !!lib.lunchBreak,
     lunchStart: lib.lunchBreak?.start ?? "12:00",
     lunchEnd: lib.lunchBreak?.end ?? "13:00",
@@ -45,6 +50,8 @@ function localBarberToLib(local: Barber): LibBarber {
     name: local.name,
     color: local.color,
     workDays: local.workingDays.map((d) => DAY_KEY_TO_NUM[d]),
+    startTime: local.startTime,
+    endTime: local.endTime,
     lunchBreak: local.lunchEnabled
       ? { start: local.lunchStart, end: local.lunchEnd }
       : undefined,
@@ -63,34 +70,21 @@ function defaultHours(): ShopDetailsState["hours"] {
   return Object.fromEntries(entries) as ShopDetailsState["hours"];
 }
 
-function initialShopDetails(): ShopDetailsState {
+function hydrateShopDetails(): ShopDetailsState {
+  const saved = loadShopSettings();
   return {
-    shopName: "Classic Cuts",
-    address: "123 Main St, Your City",
-    phone: "(555) 123-4567",
-    hours: defaultHours(),
+    shopName: saved.shopName ?? "Classic Cuts",
+    address: saved.address ?? "123 Main St, Your City",
+    phone: saved.phone ?? "(555) 123-4567",
+    hours: saved.hours
+      ? (Object.fromEntries(
+          DAYS.map((day) => [
+            day,
+            saved.hours[day] ?? { open: day !== "Sun", openTime: "09:00", closeTime: "18:00" },
+          ])
+        ) as ShopDetailsState["hours"])
+      : defaultHours(),
   };
-}
-
-function loadBarbersFromStorage(): Barber[] {
-  if (typeof window === "undefined") return BARBERS.map(libBarberToLocal);
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return BARBERS.map(libBarberToLocal);
-    const parsed = JSON.parse(raw) as LibBarber[];
-    return Array.isArray(parsed) ? parsed.map(libBarberToLocal) : BARBERS.map(libBarberToLocal);
-  } catch {
-    return BARBERS.map(libBarberToLocal);
-  }
-}
-
-function initialServices(): Service[] {
-  return [
-    { id: "s1", name: "Haircut", durationMinutes: 30, price: 25 },
-    { id: "s2", name: "Beard Trim", durationMinutes: 15, price: 12 },
-    { id: "s3", name: "Haircut + Beard", durationMinutes: 45, price: 35 },
-    { id: "s4", name: "Kids Cut", durationMinutes: 20, price: 18 },
-  ];
 }
 
 const NEW_BARBER_TEMPLATE: Barber = {
@@ -117,31 +111,38 @@ function nextId(prefix: string): string {
 }
 
 export default function ShopSettingsPage() {
-  const [shopDetails, setShopDetails] = useState<ShopDetailsState>(initialShopDetails);
+  const [shopDetails, setShopDetails] = useState<ShopDetailsState>(hydrateShopDetails);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [services, setServices] = useState<Service[]>(initialServices);
+  const [services, setServices] = useState<Service[]>(() => loadServices());
 
   useEffect(() => {
-    setBarbers(loadBarbersFromStorage());
+    setBarbers(loadBarbers().map(libBarberToLocal));
   }, []);
 
   useEffect(() => {
-    if (barbers.length === 0) return;
-    const lib = barbers.map(localBarberToLib);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(lib));
-    } catch (_) {}
+    if (barbers.length > 0) saveBarbers(barbers.map(localBarberToLib));
   }, [barbers]);
+
+  useEffect(() => {
+    saveServices(services);
+  }, [services]);
+
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [removeBarberTarget, setRemoveBarberTarget] = useState<Barber | null>(null);
   const [removeServiceTarget, setRemoveServiceTarget] = useState<Service | null>(null);
 
   const handleSaveShopDetails = useCallback(() => {
+    saveShopSettings({
+      shopName: shopDetails.shopName,
+      address: shopDetails.address,
+      phone: shopDetails.phone,
+      hours: shopDetails.hours,
+    });
     setSaveMessage("Saved (local only)");
     setTimeout(() => setSaveMessage(null), 3000);
-  }, []);
+  }, [shopDetails]);
 
   const openAddBarber = useCallback(() => {
     setEditingBarber({ ...NEW_BARBER_TEMPLATE });
