@@ -373,10 +373,10 @@ export default function ScheduleGrid({
               {/* Lunch break */}
               {barber.lunchBreak &&
                 (() => {
-                  const [sh, sm] = barber.lunchBreak.startTime
+                  const [sh, sm] = barber.lunchBreak.start
                     .split(":")
                     .map(Number);
-                  const [eh, em] = barber.lunchBreak.endTime
+                  const [eh, em] = barber.lunchBreak.end
                     .split(":")
                     .map(Number);
                   const top =

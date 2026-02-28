@@ -31,6 +31,19 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+function isLunchBlocked(
+  barber: Barber,
+  slotStart: string,
+  slotEnd: string
+): boolean {
+  if (!barber.lunchBreak) return false;
+  const lunchStart = timeToMinutes(barber.lunchBreak.start);
+  const lunchEnd = timeToMinutes(barber.lunchBreak.end);
+  const startMin = timeToMinutes(slotStart);
+  const endMin = timeToMinutes(slotEnd);
+  return startMin < lunchEnd && endMin > lunchStart;
+}
+
 function formatTime12(time24: string): string {
   const [h, m] = time24.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
@@ -188,10 +201,6 @@ export default function CalendarPanel({
 
   const totalHeight = HOURS.length * HOUR_HEIGHT;
 
-  const visibleAppointments = appointments.filter(
-    (a) => a.clientName !== "Open Slot",
-  );
-
   const highlightBar = useMemo(() => {
     if (dropReject) {
       const startMin = timeToMinutes(dropReject.time);
@@ -201,12 +210,15 @@ export default function CalendarPanel({
     }
     if (isDragging && isOver && dragOverTime && draggedService) {
       const startMin = timeToMinutes(dragOverTime);
+      const endMin = startMin + draggedService.durationMinutes;
+      const slotEnd = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+      const overLunch = isLunchBlocked(barber, dragOverTime, slotEnd);
       const top = ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
       const height = (draggedService.durationMinutes / 60) * HOUR_HEIGHT;
-      return { top, height, isReject: false, time: dragOverTime };
+      return { top, height, isReject: overLunch, time: dragOverTime };
     }
     return null;
-  }, [dropReject, isDragging, isOver, dragOverTime, draggedService]);
+  }, [barber, dropReject, isDragging, isOver, dragOverTime, draggedService]);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col overflow-hidden">
@@ -261,8 +273,8 @@ export default function CalendarPanel({
           {/* Lunch break */}
           {barber.lunchBreak &&
             (() => {
-              const lunchStart = timeToMinutes(barber.lunchBreak!.startTime);
-              const lunchEnd = timeToMinutes(barber.lunchBreak!.endTime);
+              const lunchStart = timeToMinutes(barber.lunchBreak.start);
+              const lunchEnd = timeToMinutes(barber.lunchBreak.end);
               const top =
                 ((lunchStart - START_HOUR * 60) / 60) * HOUR_HEIGHT;
               const height = ((lunchEnd - lunchStart) / 60) * HOUR_HEIGHT;
@@ -305,7 +317,7 @@ export default function CalendarPanel({
           )}
 
           {/* Appointments */}
-          {visibleAppointments.map((apt) => {
+          {appointments.map((apt) => {
             const startMin = timeToMinutes(apt.startTime);
             const endMin = timeToMinutes(apt.endTime);
             const top =
@@ -313,6 +325,21 @@ export default function CalendarPanel({
             const rawHeight = ((endMin - startMin) / 60) * HOUR_HEIGHT;
             const height = Math.max(rawHeight, 20);
             const service = serviceMap[apt.serviceId];
+            const blocked = isLunchBlocked(barber, apt.startTime, apt.endTime);
+            const isOpenSlotBlocked =
+              apt.clientName === "Open Slot" && blocked;
+
+            if (isOpenSlotBlocked) {
+              return (
+                <div
+                  key={apt.id}
+                  className="absolute left-16 right-2 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center cursor-not-allowed opacity-75"
+                  style={{ top: top + 1, height: height - 2 }}
+                >
+                  <span className="text-xs font-medium text-gray-500">Lunch</span>
+                </div>
+              );
+            }
 
             return (
               <div
