@@ -30,7 +30,7 @@ export type Appointment = {
   startTime: string; // "HH:MM" 24hr
   endTime: string;   // "HH:MM" 24hr
   date: string;      // "YYYY-MM-DD"
-  status: "scheduled" | "checked-in" | "no-show" | "paid";
+  status: "scheduled" | "checked-in" | "no-show" | "paid" | "cancelled";
   fromQueue?: boolean;
 };
 

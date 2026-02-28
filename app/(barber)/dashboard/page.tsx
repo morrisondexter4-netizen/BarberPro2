@@ -13,10 +13,9 @@ import {
 import {
   BARBERS,
   SERVICES,
-  INITIAL_QUEUE,
-  INITIAL_APPOINTMENTS,
 } from "@/lib/mock-data";
-import { Barber, QueueEntry, Appointment } from "@/lib/types";
+import { Barber, Appointment } from "@/lib/types";
+import { useBarberPro } from "@/lib/barberpro-context";
 import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
 import QueuePanel from "@/components/dashboard/QueuePanel";
@@ -50,15 +49,21 @@ function minutesToTime(minutes: number): string {
 export default function DashboardPage() {
   const today = new Date().toISOString().split("T")[0];
 
+  const {
+    appointments,
+    queue,
+    updateAppointmentStatus,
+    moveAppointment,
+    addAppointment,
+    removeFromQueue,
+  } = useBarberPro();
+
   const [barbers, setBarbers] = useState<Barber[]>(BARBERS);
   useEffect(() => {
     setBarbers(loadBarbers());
   }, []);
 
-  const [selectedBarberId, setSelectedBarberId] = useState(barbers[0]?.id ?? BARBERS[0].id);
-  const [queue, setQueue] = useState<QueueEntry[]>(INITIAL_QUEUE);
-  const [appointments, setAppointments] =
-    useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [selectedBarberId, setSelectedBarberId] = useState(BARBERS[0].id);
   const [activeAppointment, setActiveAppointment] =
     useState<Appointment | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -173,13 +178,7 @@ export default function DashboardPage() {
         return;
       }
 
-      setAppointments((prev) =>
-        prev.map((a) =>
-          a.id === appointmentId
-            ? { ...a, startTime: dropTime, endTime: minutesToTime(newEndMin) }
-            : a,
-        ),
-      );
+      moveAppointment(appointmentId, dropTime, minutesToTime(newEndMin));
       return;
     }
 
@@ -242,28 +241,15 @@ export default function DashboardPage() {
       status: "scheduled",
       fromQueue: true,
     };
-    setAppointments((prev) => [...prev, newApt]);
-
-    const entryBarberId = entry.barberId;
-    const withoutEntry = queue.filter((q) => q.id !== activeId);
-    let pos = 0;
-    const newQueue = withoutEntry.map((q) => {
-      if (q.barberId === entryBarberId) {
-        pos++;
-        return { ...q, position: pos };
-      }
-      return q;
-    });
-    setQueue(newQueue);
+    addAppointment(newApt);
+    removeFromQueue(activeId);
   }
 
   function handleStatusChange(
     appointmentId: string,
     status: Appointment["status"],
   ) {
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === appointmentId ? { ...a, status } : a)),
-    );
+    updateAppointmentStatus(appointmentId, status);
     setActiveAppointment(null);
   }
 
