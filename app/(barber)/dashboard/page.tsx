@@ -65,7 +65,10 @@ export default function DashboardPage() {
     .sort((a, b) => a.position - b.position);
 
   const barberAppointments = appointments.filter(
-    (a) => a.barberId === selectedBarberId && a.date === today,
+    (a) =>
+      a.barberId === selectedBarberId &&
+      a.date === today &&
+      a.status !== "cancelled",
   );
 
   const isRescheduleDragging =
@@ -133,7 +136,8 @@ export default function DashboardPage() {
           a.barberId === barberId &&
           a.date === today &&
           a.clientName !== "Open Slot" &&
-          a.id !== appointmentId,
+          a.id !== appointmentId &&
+          a.status !== "cancelled",
       );
       let hasOverlap = barberApts.some((a) => {
         const aStart = timeToMinutes(a.startTime);
@@ -185,7 +189,8 @@ export default function DashboardPage() {
       (a) =>
         a.barberId === barberId &&
         a.date === today &&
-        a.clientName !== "Open Slot",
+        a.clientName !== "Open Slot" &&
+        a.status !== "cancelled",
     );
     let hasOverlap = barberApts.some((a) => {
       const aStart = timeToMinutes(a.startTime);
