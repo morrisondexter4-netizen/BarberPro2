@@ -46,9 +46,6 @@ export const INITIAL_APPOINTMENTS: Appointment[] = [
   { id: "a1", clientName: "Chris P.",   serviceId: "s1", barberId: "b1", startTime: "09:00", endTime: "09:30", date: today, status: "scheduled" },
   { id: "a2", clientName: "Antoine L.", serviceId: "s2", barberId: "b1", startTime: "10:00", endTime: "10:45", date: today, status: "scheduled" },
   { id: "a3", clientName: "Ray J.",     serviceId: "s3", barberId: "b1", startTime: "14:00", endTime: "14:20", date: today, status: "scheduled" },
-  { id: "a4", clientName: "Open Slot",  serviceId: "s1", barberId: "b1", startTime: "15:00", endTime: "15:30", date: today, status: "scheduled" },
   { id: "a5", clientName: "Kevin W.",   serviceId: "s4", barberId: "b2", startTime: "09:00", endTime: "10:00", date: today, status: "scheduled" },
-  { id: "a6", clientName: "Open Slot",  serviceId: "s2", barberId: "b2", startTime: "11:00", endTime: "11:45", date: today, status: "scheduled" },
   { id: "a7", clientName: "Malik B.",   serviceId: "s1", barberId: "b3", startTime: "10:00", endTime: "10:30", date: today, status: "scheduled" },
-  { id: "a8", clientName: "Open Slot",  serviceId: "s2", barberId: "b3", startTime: "13:00", endTime: "13:45", date: today, status: "scheduled" },
 ];
