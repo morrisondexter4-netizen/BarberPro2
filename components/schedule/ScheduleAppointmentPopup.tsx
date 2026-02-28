@@ -8,6 +8,7 @@ interface ScheduleAppointmentPopupProps {
   appointment: Appointment;
   barber: Barber;
   service: Service | undefined;
+  onStatusChange: (id: string, status: Appointment["status"]) => void;
   onClose: () => void;
 }
 
@@ -16,6 +17,15 @@ const STATUS_STYLES: Record<string, string> = {
   "checked-in": "bg-green-100 text-green-700",
   paid: "bg-emerald-100 text-emerald-700",
   "no-show": "bg-red-100 text-red-600",
+  cancelled: "bg-red-100 text-red-600",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  scheduled: "Scheduled",
+  "checked-in": "Checked In",
+  paid: "Paid",
+  "no-show": "No Show",
+  cancelled: "Cancelled",
 };
 
 function formatDate(dateStr: string): string {
@@ -38,6 +48,7 @@ export default function ScheduleAppointmentPopup({
   appointment,
   barber,
   service,
+  onStatusChange,
   onClose,
 }: ScheduleAppointmentPopupProps) {
   const [visible, setVisible] = useState(false);
@@ -107,9 +118,22 @@ export default function ScheduleAppointmentPopup({
               STATUS_STYLES[appointment.status] ?? "bg-gray-100 text-gray-600"
             }`}
           >
-            {appointment.status}
+            {STATUS_LABELS[appointment.status] ?? appointment.status}
           </span>
         </div>
+
+        {/* Cancel button */}
+        {appointment.status !== "cancelled" && (
+          <button
+            onClick={() => {
+              onStatusChange(appointment.id, "cancelled");
+              handleClose();
+            }}
+            className="w-full bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl py-3 text-sm font-semibold transition-all mt-4"
+          >
+            Cancel Appointment
+          </button>
+        )}
       </div>
     </div>
   );

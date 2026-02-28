@@ -119,19 +119,29 @@ export default function ScheduleGrid({
                   28,
                   ((eh * 60 + em - (sh * 60 + sm)) / 60) * 64
                 );
+                const isCancelled = apt.status === "cancelled";
                 return (
                   <div
                     key={apt.id}
-                    className="absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer overflow-hidden transition-all hover:brightness-95"
+                    className={`absolute left-1 right-1 rounded-lg px-2 py-1 cursor-pointer overflow-hidden transition-all hover:brightness-95 ${
+                      isCancelled ? "opacity-40" : ""
+                    }`}
                     style={{
                       top,
                       height,
-                      backgroundColor: colors.hex + "20",
-                      borderLeft: `3px solid ${colors.hex}`,
+                      backgroundColor: isCancelled
+                        ? "#f3f4f6"
+                        : colors.hex + "20",
+                      borderLeft: `3px solid ${isCancelled ? "#d1d5db" : colors.hex}`,
+                      filter: isCancelled ? "grayscale(1)" : undefined,
                     }}
                     onClick={() => onAppointmentClick(apt)}
                   >
-                    <p className="text-xs font-semibold text-gray-900 truncate">
+                    <p
+                      className={`text-xs font-semibold text-gray-900 truncate ${
+                        isCancelled ? "line-through" : ""
+                      }`}
+                    >
                       {apt.clientName}
                     </p>
                     {height >= 40 && (

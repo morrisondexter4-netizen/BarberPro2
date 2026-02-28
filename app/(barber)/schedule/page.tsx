@@ -15,8 +15,15 @@ export default function SchedulePage() {
   });
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
+  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
 
-  const allAppointments = INITIAL_APPOINTMENTS;
+  const handleStatusChange = (id: string, status: Appointment["status"]) => {
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, status } : a))
+    );
+  };
+
+  const allAppointments = appointments;
 
   const getWeekDates = (offset: number): string[] => {
     const now = new Date();
@@ -143,6 +150,7 @@ export default function SchedulePage() {
           service={SERVICES.find(
             (s) => s.id === selectedAppointment.serviceId
           )}
+          onStatusChange={handleStatusChange}
           onClose={() => setSelectedAppointment(null)}
         />
       )}
