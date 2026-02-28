@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Appointment, Barber, Service } from "@/lib/types";
 import { BARBER_COLOR_MAP } from "@/lib/barber-colors";
+import CustomerProfilePopup from "@/components/customers/CustomerProfilePopup";
 
 type Props = {
   appointment: Appointment;
@@ -41,6 +42,7 @@ export default function AppointmentPopup({
   onClose,
 }: Props) {
   const [visible, setVisible] = useState(false);
+  const [showCustomerProfile, setShowCustomerProfile] = useState(false);
   const colors = BARBER_COLOR_MAP[barber.color] ?? BARBER_COLOR_MAP.blue;
 
   useEffect(() => {
@@ -86,8 +88,12 @@ export default function AppointmentPopup({
 
         {/* Header */}
         <div className="flex items-center gap-2 mb-4 pr-8">
-          <h3 className="text-xl font-bold text-gray-900">
+          <h3
+            className="text-xl font-bold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors inline-flex items-center gap-2"
+            onClick={() => setShowCustomerProfile(true)}
+          >
             {appointment.clientName}
+            <span className="text-sm font-normal text-blue-500">View profile →</span>
           </h3>
           <span className={`w-2.5 h-2.5 rounded-full ${colors.bg}`} />
           <span className="text-sm text-gray-500">{barber.name}</span>
@@ -146,6 +152,13 @@ export default function AppointmentPopup({
           </button>
         </div>
       </div>
+
+      {showCustomerProfile && (
+        <CustomerProfilePopup
+          clientName={appointment.clientName}
+          onClose={() => setShowCustomerProfile(false)}
+        />
+      )}
     </div>
   );
 }

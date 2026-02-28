@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Appointment, Barber, Service } from "@/lib/types";
 import { BARBER_COLOR_MAP } from "@/lib/barber-colors";
+import CustomerProfilePopup from "@/components/customers/CustomerProfilePopup";
 
 interface ScheduleAppointmentPopupProps {
   appointment: Appointment;
@@ -52,6 +53,7 @@ export default function ScheduleAppointmentPopup({
   onClose,
 }: ScheduleAppointmentPopupProps) {
   const [visible, setVisible] = useState(false);
+  const [showCustomerProfile, setShowCustomerProfile] = useState(false);
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -95,8 +97,12 @@ export default function ScheduleAppointmentPopup({
         </div>
 
         {/* Client name */}
-        <h2 className="text-2xl font-bold text-gray-900 mb-4">
+        <h2
+          className="text-2xl font-bold text-gray-900 mb-4 cursor-pointer hover:text-blue-600 transition-colors inline-flex items-center gap-2"
+          onClick={() => setShowCustomerProfile(true)}
+        >
           {appointment.clientName}
+          <span className="text-sm font-normal text-blue-500">View profile →</span>
         </h2>
 
         {/* Service pill */}
@@ -135,6 +141,13 @@ export default function ScheduleAppointmentPopup({
           </button>
         )}
       </div>
+
+      {showCustomerProfile && (
+        <CustomerProfilePopup
+          clientName={appointment.clientName}
+          onClose={() => setShowCustomerProfile(false)}
+        />
+      )}
     </div>
   );
 }
