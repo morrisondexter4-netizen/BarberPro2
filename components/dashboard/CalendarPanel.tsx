@@ -49,8 +49,15 @@ function BookedAppointmentCard({
   serviceName: string;
   onClick: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: "move-" + appointment.id });
+  const { attributes, listeners, setNodeRef, isDragging } =
+    useDraggable({
+      id: "reschedule-" + appointment.id,
+      data: {
+        type: "reschedule",
+        appointmentId: appointment.id,
+        serviceId: appointment.serviceId,
+      },
+    });
 
   const colors = BARBER_COLOR_MAP[barber.color] ?? BARBER_COLOR_MAP.blue;
   const isNoShow = appointment.status === "no-show";
@@ -58,13 +65,7 @@ function BookedAppointmentCard({
   const style: React.CSSProperties = {
     backgroundColor: `${colors.hex}15`,
     borderLeftColor: colors.hex,
-    ...(transform
-      ? {
-          transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-          zIndex: 50,
-        }
-      : {}),
-    ...(isDragging ? { opacity: 0.7 } : {}),
+    ...(isDragging ? { opacity: 0.4 } : {}),
   };
 
   return (
@@ -74,7 +75,7 @@ function BookedAppointmentCard({
       {...listeners}
       style={style}
       onClick={onClick}
-      className={`h-full w-full rounded-lg border-l-4 px-2.5 py-1.5 overflow-hidden cursor-pointer hover:brightness-95 transition-all duration-150 ${
+      className={`h-full w-full rounded-lg border-l-4 px-2.5 py-1.5 overflow-hidden cursor-grab active:cursor-grabbing hover:brightness-95 transition-all duration-150 ${
         isNoShow ? "opacity-50" : ""
       }`}
     >

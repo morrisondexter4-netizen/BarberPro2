@@ -51,12 +51,23 @@ export default function DashboardPage() {
     (a) => a.barberId === selectedBarberId && a.date === today,
   );
 
+  const isRescheduleDragging =
+    activeDragId !== null && activeDragId.startsWith("reschedule-");
   const isQueueDragging =
-    activeDragId !== null && !activeDragId.startsWith("move-");
+    activeDragId !== null && !isRescheduleDragging;
+  const isTimelineDragging = isQueueDragging || isRescheduleDragging;
   const draggedEntry = isQueueDragging
     ? queue.find((q) => q.id === activeDragId)
     : null;
-  const draggedServiceId = draggedEntry?.serviceId ?? null;
+  const draggedServiceId = (() => {
+    if (isQueueDragging && draggedEntry) return draggedEntry.serviceId;
+    if (isRescheduleDragging && activeDragId) {
+      const aptId = activeDragId.replace("reschedule-", "");
+      const apt = appointments.find((a) => a.id === aptId);
+      return apt?.serviceId ?? null;
+    }
+    return null;
+  })();
 
   const handleDragTimeChange = useCallback((time: string | null) => {
     dragTimeRef.current = time;
@@ -68,25 +79,9 @@ export default function DashboardPage() {
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    const { active, over, delta } = event;
+    const { active, over } = event;
     const activeId = active.id as string;
     setActiveDragId(null);
-
-    if (activeId.startsWith("move-")) {
-      const appointmentId = activeId.replace("move-", "");
-      const apt = appointments.find((a) => a.id === appointmentId);
-      if (!apt) return;
-
-      const deltaMinutes = (delta.y / 80) * 60;
-      const startMinutes = timeToMinutes(apt.startTime) + deltaMinutes;
-      const snappedMinutes = Math.round(startMinutes / 15) * 15;
-      const clampedMinutes = Math.max(
-        8 * 60,
-        Math.min(19 * 60, snappedMinutes),
-      );
-      handleMoveAppointment(appointmentId, minutesToTime(clampedMinutes));
-      return;
-    }
 
     if (!over) return;
     const overId = over.id as string;
@@ -95,6 +90,67 @@ export default function DashboardPage() {
     const barberId = overId.replace("timeline-", "");
     const dropTime = dragTimeRef.current;
     if (!dropTime) return;
+
+    if (activeId.startsWith("reschedule-")) {
+      const appointmentId = activeId.replace("reschedule-", "");
+      const apt = appointments.find((a) => a.id === appointmentId);
+      if (!apt) return;
+
+      const service = SERVICES.find((s) => s.id === apt.serviceId);
+      if (!service) return;
+
+      const newStartMin = timeToMinutes(dropTime);
+      const newEndMin = newStartMin + service.durationMinutes;
+
+      if (newStartMin < 8 * 60 || newEndMin > 19 * 60) {
+        setDropReject({
+          time: dropTime,
+          durationMinutes: service.durationMinutes,
+        });
+        setTimeout(() => setDropReject(null), 600);
+        return;
+      }
+
+      const barberApts = appointments.filter(
+        (a) =>
+          a.barberId === barberId &&
+          a.date === today &&
+          a.clientName !== "Open Slot" &&
+          a.id !== appointmentId,
+      );
+      let hasOverlap = barberApts.some((a) => {
+        const aStart = timeToMinutes(a.startTime);
+        const aEnd = timeToMinutes(a.endTime);
+        return newStartMin < aEnd && newEndMin > aStart;
+      });
+
+      const targetBarber = BARBERS.find((b) => b.id === barberId);
+      if (!hasOverlap && targetBarber?.lunchBreak) {
+        const lStart = timeToMinutes(targetBarber.lunchBreak.startTime);
+        const lEnd = timeToMinutes(targetBarber.lunchBreak.endTime);
+        if (newStartMin < lEnd && newEndMin > lStart) {
+          hasOverlap = true;
+        }
+      }
+
+      if (hasOverlap) {
+        setDropReject({
+          time: dropTime,
+          durationMinutes: service.durationMinutes,
+        });
+        setTimeout(() => setDropReject(null), 600);
+        return;
+      }
+
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a.id === appointmentId
+            ? { ...a, startTime: dropTime, endTime: minutesToTime(newEndMin) }
+            : a,
+        ),
+      );
+      return;
+    }
 
     const entry = queue.find((q) => q.id === activeId);
     if (!entry) return;
@@ -180,20 +236,6 @@ export default function DashboardPage() {
     setActiveAppointment(null);
   }
 
-  function handleMoveAppointment(appointmentId: string, newStartTime: string) {
-    setAppointments((prev) =>
-      prev.map((a) => {
-        if (a.id !== appointmentId) return a;
-        const duration =
-          timeToMinutes(a.endTime) - timeToMinutes(a.startTime);
-        const newEndTime = minutesToTime(
-          timeToMinutes(newStartTime) + duration,
-        );
-        return { ...a, startTime: newStartTime, endTime: newEndTime };
-      }),
-    );
-  }
-
   return (
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
@@ -222,7 +264,7 @@ export default function DashboardPage() {
               barber={selectedBarber}
               services={SERVICES}
               onAppointmentClick={(apt) => setActiveAppointment(apt)}
-              isDragging={isQueueDragging}
+              isDragging={isTimelineDragging}
               draggedServiceId={draggedServiceId}
               onDragTimeChange={handleDragTimeChange}
               dropReject={dropReject}
