@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCrmStore } from "@/lib/crm/store";
 import { searchCustomers } from "@/lib/crm/selectors";
+import { loadCustomers } from "@/lib/settings";
+import type { Customer as BookingCustomer } from "@/lib/types";
 import PageContainer from "@/components/ui/PageContainer";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
@@ -13,8 +15,56 @@ export default function CustomersPage() {
   const { state, actions } = useCrmStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [bookingCustomers, setBookingCustomers] = useState<BookingCustomer[]>([]);
 
-  const customers = useMemo(() => searchCustomers(state, searchQuery), [state, searchQuery]);
+  useEffect(() => {
+    try {
+      const loaded = loadCustomers();
+      if (Array.isArray(loaded)) {
+        setBookingCustomers(loaded);
+      }
+    } catch {
+      // ignore storage issues
+    }
+  }, []);
+
+  const customers = useMemo(() => {
+    const base = searchCustomers(state, searchQuery);
+
+    const visitNoShows: Record<string, number> = {};
+    state.visits.forEach((v) => {
+      if (v.outcome === "NO_SHOW") {
+        visitNoShows[v.customerId] = (visitNoShows[v.customerId] ?? 0) + 1;
+      }
+    });
+
+    const bookingNoShowsByContact: Record<string, number> = {};
+    bookingCustomers.forEach((bc) => {
+      const count =
+        (bc as BookingCustomer & { noShowCount?: number }).noShowCount ??
+        (bc as any).noShows ??
+        0;
+      if (count <= 0) return;
+      const key = bc.phone || bc.email || bc.name;
+      if (!key) return;
+      bookingNoShowsByContact[key] =
+        (bookingNoShowsByContact[key] ?? 0) + count;
+    });
+
+    return base.map((c) => {
+      const fromVisits = visitNoShows[c.id] ?? 0;
+      const contactKey =
+        c.phone || c.email || `${c.firstName} ${c.lastName}`.trim();
+      const fromBookings = contactKey
+        ? bookingNoShowsByContact[contactKey] ?? 0
+        : 0;
+
+      return {
+        ...c,
+        noShowCount: fromVisits + fromBookings,
+      };
+    });
+  }, [state, searchQuery, bookingCustomers]);
 
   const handleAddCustomer = (payload: {
     firstName: string;
