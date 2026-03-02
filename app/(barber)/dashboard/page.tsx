@@ -14,7 +14,8 @@ import {
   BARBERS,
   SERVICES,
 } from "@/lib/mock-data";
-import { Barber, Appointment } from "@/lib/types";
+import type { Barber, Appointment, Customer } from "@/lib/types";
+import { loadCustomers, saveCustomers } from "@/lib/settings";
 import { useBarberPro } from "@/lib/barberpro-context";
 import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
@@ -33,6 +34,68 @@ function loadBarbers(): Barber[] {
     return Array.isArray(parsed) && parsed.length > 0 ? parsed : BARBERS;
   } catch {
     return BARBERS;
+  }
+}
+
+const CUSTOMERS_STORAGE_KEY = "barberpro.customers";
+
+function findCustomerIndexForAppointment(
+  customers: Customer[],
+  appointment: Appointment,
+): number {
+  if (appointment.customerId) {
+    const byId = customers.findIndex((c) => c.id === appointment.customerId);
+    if (byId !== -1) return byId;
+  }
+
+  const name = appointment.clientName?.trim();
+  if (name) {
+    const byName = customers.findIndex((c) => c.name === name);
+    if (byName !== -1) return byName;
+  }
+
+  const phone = appointment.clientPhone?.trim();
+  if (phone) {
+    const byPhone = customers.findIndex((c) => c.phone === phone);
+    if (byPhone !== -1) return byPhone;
+  }
+
+  const email = appointment.clientEmail?.trim();
+  if (email) {
+    const byEmail = customers.findIndex((c) => c.email === email);
+    if (byEmail !== -1) return byEmail;
+  }
+
+  return -1;
+}
+
+function incrementNoShowForCustomer(appointment: Appointment): void {
+  try {
+    const stored = loadCustomers();
+    const customers = Array.isArray(stored) ? stored : [];
+    if (customers.length === 0) return;
+
+    const index = findCustomerIndexForAppointment(customers, appointment);
+    if (index === -1) return;
+
+    const customer = customers[index];
+    const current = customer.noShowCount ?? customer.noShows ?? 0;
+
+    const updated: Customer = {
+      ...customer,
+      noShowCount: current + 1,
+      noShows: current + 1,
+    };
+
+    const next = [...customers];
+    next[index] = updated;
+    saveCustomers(next);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(next));
+    }
+  } catch {
+    // ignore storage errors
   }
 }
 
@@ -269,8 +332,14 @@ export default function DashboardPage() {
     appointmentId: string,
     status: Appointment["status"],
   ) {
+    const apt = appointments.find((a) => a.id === appointmentId);
     updateAppointmentStatus(appointmentId, status);
     setActiveAppointment(null);
+
+    if (!apt) return;
+    if (status === "no-show" && apt.status !== "no-show") {
+      incrementNoShowForCustomer(apt);
+    }
   }
 
   return (
