@@ -14,7 +14,9 @@ import {
   BARBERS,
   SERVICES as MOCK_SERVICES,
 } from "@/lib/mock-data";
-import { Barber, Appointment, Service } from "@/lib/types";
+import type { Barber, Appointment, Service } from "@/lib/types";
+import type { Customer as CrmCustomer } from "@/lib/crm/types";
+import { MOCK_CUSTOMERS } from "@/lib/crm/mock";
 import { useBarberPro } from "@/lib/barberpro-context";
 import { loadServicesAsync } from "@/lib/settings";
 import { calculateQueueWaitTimes, buildWaitTimeUpdateSms } from "@/lib/queue-utils";
@@ -35,6 +37,126 @@ function loadBarbers(): Barber[] {
     return Array.isArray(parsed) && parsed.length > 0 ? parsed : BARBERS;
   } catch {
     return BARBERS;
+  }
+}
+
+const CUSTOMERS_STORAGE_KEY = "barberpro.customers.v1";
+
+type StoredCustomer = CrmCustomer & { noShowCount: number };
+
+function normalizeName(value: string): string {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function loadStoredCustomers(): StoredCustomer[] {
+  if (typeof window === "undefined") {
+    return MOCK_CUSTOMERS.map((c) => ({ ...c, noShowCount: 0 }));
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CUSTOMERS_STORAGE_KEY);
+    if (!raw) {
+      const seeded = MOCK_CUSTOMERS.map((c) => ({ ...c, noShowCount: 0 }));
+      window.localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(seeded));
+      return seeded;
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.map((c: any) => ({
+      ...c,
+      noShowCount: typeof c.noShowCount === "number" ? c.noShowCount : 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function findCustomerIndexForAppointment(
+  customers: StoredCustomer[],
+  appointment: Appointment,
+): number {
+  const phone = appointment.clientPhone?.trim();
+  if (phone) {
+    const byPhone = customers.findIndex(
+      (c) => c.phone.trim() === phone,
+    );
+    if (byPhone !== -1) return byPhone;
+  }
+
+  if (appointment.customerId) {
+    const byId = customers.findIndex((c) => c.id === appointment.customerId);
+    if (byId !== -1) return byId;
+  }
+
+  const name = appointment.clientName?.trim();
+  if (name) {
+    const target = normalizeName(name);
+    const byName = customers.findIndex(
+      (c) => normalizeName(`${c.firstName} ${c.lastName}`) === target,
+    );
+    if (byName !== -1) return byName;
+  }
+
+  const email = appointment.clientEmail?.trim();
+  if (email) {
+    const targetEmail = email.toLowerCase();
+    const byEmail = customers.findIndex(
+      (c) => c.email.trim().toLowerCase() === targetEmail,
+    );
+    if (byEmail !== -1) return byEmail;
+  }
+
+  return -1;
+}
+
+function incrementNoShowForCustomer(appointment: Appointment): void {
+  if (typeof window === "undefined") return;
+
+  try {
+    const customers = loadStoredCustomers();
+
+    const index = findCustomerIndexForAppointment(customers, appointment);
+    const clientName = appointment.clientName?.trim() || "Unknown";
+    const phone = appointment.clientPhone?.trim() ?? "";
+    const email = appointment.clientEmail?.trim() ?? "";
+
+    let next: StoredCustomer[];
+
+    if (index === -1) {
+      const parts = clientName.split(/\s+/);
+      const firstName = parts[0] ?? "Unknown";
+      const lastName = parts.slice(1).join(" ");
+      const now = new Date().toISOString();
+
+      const newCustomer: StoredCustomer = {
+        id: appointment.customerId || `cust-${Date.now()}`,
+        firstName,
+        lastName,
+        phone,
+        email,
+        createdAt: now,
+        notes: "",
+        visitCount: 0,
+        noShowCount: 1,
+      };
+
+      next = [...customers, newCustomer];
+    } else {
+      const customer = customers[index];
+      const updated: StoredCustomer = {
+        ...customer,
+        noShowCount: customer.noShowCount + 1,
+      };
+      next = [...customers];
+      next[index] = updated;
+    }
+
+    window.localStorage.setItem(CUSTOMERS_STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event("barberpro:customers-updated"));
+  } catch {
+    // ignore storage errors
   }
 }
 
@@ -286,8 +408,14 @@ export default function DashboardPage() {
     appointmentId: string,
     status: Appointment["status"],
   ) {
+    const apt = appointments.find((a) => a.id === appointmentId);
     updateAppointmentStatus(appointmentId, status);
     setActiveAppointment(null);
+
+    if (!apt) return;
+    if (status === "no-show" && apt.status !== "no-show") {
+      incrementNoShowForCustomer(apt);
+    }
   }
 
   return (

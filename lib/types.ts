@@ -22,6 +22,7 @@ export type Customer = {
   phone: string;
   email: string;
   noShows: number;
+  noShowCount?: number;
   totalVisits: number;
   createdAt: string;
 };
