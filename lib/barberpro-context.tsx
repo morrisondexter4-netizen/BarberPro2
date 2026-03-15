@@ -1,7 +1,14 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Appointment, QueueEntry } from "./types";
-import { loadAppointments, saveAppointments, loadQueue, saveQueue } from "./settings";
+import {
+  saveAppointments,
+  saveQueue,
+  loadAppointmentsAsync, loadQueueAsync,
+  persistAppointment, persistUpdateAppointment,
+  persistQueueEntry, persistDeleteQueueEntry,
+} from "./settings";
+import { isSupabaseConfigured } from "./supabase";
 
 type BarberProContextType = {
   appointments: Appointment[];
@@ -23,12 +30,20 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
+  // Load from Supabase on startup; fall back to localStorage if Supabase is not configured.
+  // localStorage save effects below act as a local cache after hydration.
   useEffect(() => {
-    setAppointments(loadAppointments());
-    setQueue(loadQueue());
-    setHydrated(true);
+    Promise.all([loadAppointmentsAsync(), loadQueueAsync()])
+      .then(([appts, q]) => {
+        setAppointments(appts);
+        setQueue(q);
+      })
+      .catch(console.error)
+      .finally(() => setHydrated(true));
   }, []);
 
+  // localStorage cache — kept as fallback. Only fires after hydration to avoid
+  // overwriting stored data with the empty initial state.
   useEffect(() => {
     if (hydrated) saveAppointments(appointments);
   }, [appointments, hydrated]);
@@ -38,22 +53,59 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
   }, [queue, hydrated]);
 
   const updateAppointmentStatus = (id: string, status: Appointment["status"]) =>
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
+    setAppointments(prev => {
+      const next = prev.map(a => a.id === id ? { ...a, status } : a);
+      if (isSupabaseConfigured()) {
+        const appt = next.find(a => a.id === id);
+        if (appt) persistUpdateAppointment(appt).catch(console.error);
+      }
+      return next;
+    });
 
   const moveAppointment = (id: string, newStartTime: string, newEndTime: string) =>
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, startTime: newStartTime, endTime: newEndTime } : a));
+    setAppointments(prev => {
+      const next = prev.map(a =>
+        a.id === id ? { ...a, startTime: newStartTime, endTime: newEndTime } : a
+      );
+      if (isSupabaseConfigured()) {
+        const appt = next.find(a => a.id === id);
+        if (appt) persistUpdateAppointment(appt).catch(console.error);
+      }
+      return next;
+    });
 
   const cancelAppointment = (id: string) =>
-    setAppointments(prev => prev.map(a => a.id === id ? { ...a, status: "cancelled" } : a));
+    setAppointments(prev => {
+      const next = prev.map(a => a.id === id ? { ...a, status: "cancelled" as const } : a);
+      if (isSupabaseConfigured()) {
+        const appt = next.find(a => a.id === id);
+        if (appt) persistUpdateAppointment(appt).catch(console.error);
+      }
+      return next;
+    });
 
-  const addAppointment = (apt: Appointment) =>
+  const addAppointment = (apt: Appointment) => {
     setAppointments(prev => [...prev, apt]);
+    if (isSupabaseConfigured()) {
+      persistAppointment(apt).catch(console.error);
+    }
+  };
 
-  const removeFromQueue = (id: string) =>
+  const removeFromQueue = (id: string) => {
     setQueue(prev => prev.filter(e => e.id !== id).map((e, i) => ({ ...e, position: i + 1 })));
+    if (isSupabaseConfigured()) {
+      persistDeleteQueueEntry(id).catch(console.error);
+    }
+  };
 
   const addToQueue = (entry: QueueEntry) =>
-    setQueue(prev => [...prev, { ...entry, position: prev.length + 1 }]);
+    setQueue(prev => {
+      const newEntry = { ...entry, position: prev.length + 1 };
+      if (isSupabaseConfigured()) {
+        persistQueueEntry(newEntry).catch(console.error);
+      }
+      return [...prev, newEntry];
+    });
 
   if (!hydrated) return null;
 

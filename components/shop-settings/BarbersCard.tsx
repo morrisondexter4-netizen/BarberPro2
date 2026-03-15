@@ -1,7 +1,7 @@
 "use client";
 
 import Button from "@/components/ui/Button";
-import { type Barber, BarberColor } from "./types";
+import { type Barber, type Service, BarberColor } from "./types";
 import BarberModal from "./BarberModal";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -18,6 +18,7 @@ const headerClass = "text-lg font-bold text-gray-900";
 
 type BarbersCardProps = {
   barbers: Barber[];
+  services: Service[];
   editingBarber: Barber | null;
   removeTarget: Barber | null;
   onAdd: () => void;
@@ -37,6 +38,7 @@ function timeToMinutes(t: string): number {
 
 export default function BarbersCard({
   barbers,
+  services,
   editingBarber,
   removeTarget,
   onAdd,
@@ -163,6 +165,7 @@ export default function BarbersCard({
         onClose={onCloseModal}
         barber={editingBarber}
         onSave={onSaveBarber}
+        services={services}
       />
       <ConfirmDialog
         isOpen={removeTarget !== null}

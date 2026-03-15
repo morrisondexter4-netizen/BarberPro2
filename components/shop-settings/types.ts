@@ -28,6 +28,7 @@ export interface Barber {
   lunchEnabled: boolean;
   lunchStart: string;
   lunchEnd: string;
+  serviceDurations?: Record<string, number>; // serviceId → minutes override
 }
 
 export interface Service {

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Modal from "@/components/ui/Modal";
 import Input from "@/components/ui/Input";
 import Button from "@/components/ui/Button";
-import { DAYS, type Barber, type BarberColor, type DayKey } from "./types";
+import { DAYS, type Barber, type BarberColor, type DayKey, type Service } from "./types";
 
 const COLOR_PILLS: { value: BarberColor; label: string; bg: string }[] = [
   { value: "blue", label: "Blue", bg: "bg-blue-500" },
@@ -22,9 +22,10 @@ type BarberModalProps = {
   onClose: () => void;
   barber: Barber | null;
   onSave: (barber: Barber) => void;
+  services: Service[];
 };
 
-export default function BarberModal({ isOpen, onClose, barber, onSave }: BarberModalProps) {
+export default function BarberModal({ isOpen, onClose, barber, onSave, services }: BarberModalProps) {
   const [local, setLocal] = useState<Barber | null>(null);
 
   useEffect(() => {
@@ -145,6 +146,43 @@ export default function BarberModal({ isOpen, onClose, barber, onSave }: BarberM
             </div>
           )}
         </div>
+        {services.length > 0 && (
+          <div>
+            <p className={`${labelClass} mb-2`}>Service durations</p>
+            <p className={`${metaClass} mb-3`}>Override the global duration for this barber. Leave blank to use the default.</p>
+            <div className="space-y-2">
+              {services.map((svc) => {
+                const override = local.serviceDurations?.[svc.id];
+                return (
+                  <div key={svc.id} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-700 flex-1 truncate">{svc.name}</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={1}
+                        step={5}
+                        value={override ?? ""}
+                        placeholder={String(svc.durationMinutes)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          const next = { ...(local.serviceDurations ?? {}) };
+                          if (val === "" || Number(val) <= 0) {
+                            delete next[svc.id];
+                          } else {
+                            next[svc.id] = Number(val);
+                          }
+                          update({ serviceDurations: Object.keys(next).length > 0 ? next : undefined });
+                        }}
+                        className="w-20 rounded-xl border border-gray-300 px-2 py-1.5 text-sm text-gray-900 text-right"
+                      />
+                      <span className={metaClass}>min</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="secondary" onClick={onClose} className="rounded-xl">
             Cancel

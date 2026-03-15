@@ -9,6 +9,7 @@ import {
   loadAppointments,
   saveAppointments,
   upsertCustomer,
+  getServiceDuration,
 } from "@/lib/settings";
 import type { Barber, Service, Appointment } from "@/lib/types";
 
@@ -125,7 +126,7 @@ export default function BookAppointmentPage() {
   function handleSubmit() {
     if (!selectedBarber || !selectedDate || !selectedTime || !selectedService) return;
     const customer = upsertCustomer(name, phone, email);
-    const duration = selectedService.durationMinutes;
+    const duration = getServiceDuration(selectedService, selectedBarber);
     const endMin = timeToMinutes(selectedTime) + duration;
     const newApt: Appointment = {
       id: `apt-${Date.now()}`,
@@ -303,7 +304,7 @@ export default function BookAppointmentPage() {
                 >
                   <div>
                     <span className="text-white font-medium">{s.name}</span>
-                    <span className="text-gray-500 text-sm ml-2">{s.durationMinutes} min</span>
+                    <span className="text-gray-500 text-sm ml-2">{getServiceDuration(s, selectedBarber ?? undefined)} min</span>
                   </div>
                   <span className="text-white font-semibold">${s.price}</span>
                 </button>

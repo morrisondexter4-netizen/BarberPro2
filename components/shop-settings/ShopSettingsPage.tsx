@@ -15,9 +15,9 @@ import {
 } from "./types";
 import type { Barber as LibBarber } from "@/lib/types";
 import {
-  loadBarbers,
+  loadBarbersAsync,
   saveBarbers,
-  loadServices,
+  loadServicesAsync,
   saveServices,
   loadShopSettings,
   saveShopSettings,
@@ -41,6 +41,7 @@ function libBarberToLocal(lib: LibBarber): Barber {
     lunchEnabled: !!lib.lunchBreak,
     lunchStart: lib.lunchBreak?.start ?? "12:00",
     lunchEnd: lib.lunchBreak?.end ?? "13:00",
+    serviceDurations: lib.serviceDurations,
   };
 }
 
@@ -55,6 +56,7 @@ function localBarberToLib(local: Barber): LibBarber {
     lunchBreak: local.lunchEnabled
       ? { start: local.lunchStart, end: local.lunchEnd }
       : undefined,
+    serviceDurations: local.serviceDurations,
   };
 }
 
@@ -114,10 +116,14 @@ export default function ShopSettingsPage() {
   const [shopDetails, setShopDetails] = useState<ShopDetailsState>(hydrateShopDetails);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [barbers, setBarbers] = useState<Barber[]>([]);
-  const [services, setServices] = useState<Service[]>(() => loadServices());
+  const [services, setServices] = useState<Service[]>([]);
 
   useEffect(() => {
-    setBarbers(loadBarbers().map(libBarberToLocal));
+    loadBarbersAsync().then((loaded) => setBarbers(loaded.map(libBarberToLocal)));
+  }, []);
+
+  useEffect(() => {
+    loadServicesAsync().then((loaded) => setServices(loaded));
   }, []);
 
   useEffect(() => {
@@ -125,7 +131,7 @@ export default function ShopSettingsPage() {
   }, [barbers]);
 
   useEffect(() => {
-    saveServices(services);
+    if (services.length > 0) saveServices(services);
   }, [services]);
 
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
@@ -140,7 +146,7 @@ export default function ShopSettingsPage() {
       phone: shopDetails.phone,
       hours: shopDetails.hours,
     });
-    setSaveMessage("Saved (local only)");
+    setSaveMessage("Saved");
     setTimeout(() => setSaveMessage(null), 3000);
   }, [shopDetails]);
 
@@ -230,6 +236,7 @@ export default function ShopSettingsPage() {
         <div className="space-y-6">
           <BarbersCard
             barbers={barbers}
+            services={services}
             editingBarber={editingBarber}
             removeTarget={removeBarberTarget}
             onAdd={openAddBarber}

@@ -12,10 +12,12 @@ import {
 } from "@dnd-kit/core";
 import {
   BARBERS,
-  SERVICES,
+  SERVICES as MOCK_SERVICES,
 } from "@/lib/mock-data";
-import { Barber, Appointment } from "@/lib/types";
+import { Barber, Appointment, Service } from "@/lib/types";
 import { useBarberPro } from "@/lib/barberpro-context";
+import { loadServicesAsync } from "@/lib/settings";
+import { calculateQueueWaitTimes, buildWaitTimeUpdateSms } from "@/lib/queue-utils";
 import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
 import QueuePanel from "@/components/dashboard/QueuePanel";
@@ -53,6 +55,7 @@ export default function DashboardPage() {
   const {
     appointments,
     queue,
+    setQueue,
     updateAppointmentStatus,
     moveAppointment,
     addAppointment,
@@ -60,9 +63,23 @@ export default function DashboardPage() {
   } = useBarberPro();
 
   const [barbers, setBarbers] = useState<Barber[]>(BARBERS);
+  const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
+  const [smsNotice, setSmsNotice] = useState<string | null>(null);
+
+  useEffect(() => { setBarbers(loadBarbers()); }, []);
+  useEffect(() => { loadServicesAsync().then(setServices); }, []);
+
+  // Recalculate wait times whenever queue, appointments, barbers, or services change
+  const todayAppointments = appointments.filter(
+    a => a.date === today && a.status !== "cancelled"
+  );
   useEffect(() => {
-    setBarbers(loadBarbers());
-  }, []);
+    if (queue.length === 0) return;
+    const updated = calculateQueueWaitTimes(queue, todayAppointments, barbers, services);
+    const changed = updated.some((e, i) => e.waitMinutes !== queue[i]?.waitMinutes);
+    if (changed) setQueue(updated);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointments, barbers, services]);
 
   const [selectedBarberId, setSelectedBarberId] = useState(BARBERS[0].id);
   const [activeAppointment, setActiveAppointment] =
@@ -149,7 +166,7 @@ export default function DashboardPage() {
       const apt = appointments.find((a) => a.id === appointmentId);
       if (!apt) return;
 
-      const service = SERVICES.find((s) => s.id === apt.serviceId);
+      const service = services.find((s) => s.id === apt.serviceId);
       if (!service) return;
 
       const newStartMin = timeToMinutes(dropTime);
@@ -203,7 +220,7 @@ export default function DashboardPage() {
     const entry = queue.find((q) => q.id === activeId);
     if (!entry) return;
 
-    const service = SERVICES.find((s) => s.id === entry.serviceId);
+    const service = services.find((s) => s.id === entry.serviceId);
     if (!service) return;
 
     const newStartMin = timeToMinutes(dropTime);
@@ -276,6 +293,11 @@ export default function DashboardPage() {
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="flex flex-col h-[calc(100vh-3.5rem)]">
+        {smsNotice && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-gray-900 text-white text-sm shadow-lg">
+            {smsNotice}
+          </div>
+        )}
         {/* Barber Switcher Bar */}
         <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100">
           <span className="text-sm font-medium text-gray-500">Viewing:</span>
@@ -299,7 +321,7 @@ export default function DashboardPage() {
             <CalendarPanel
               appointments={barberAppointments}
               barber={selectedBarber}
-              services={SERVICES}
+              services={services}
               onAppointmentClick={(apt) => setActiveAppointment(apt)}
               isDragging={isTimelineDragging}
               draggedServiceId={draggedServiceId}
@@ -311,7 +333,7 @@ export default function DashboardPage() {
             <QueuePanel
               queue={barberQueue}
               barber={selectedBarber}
-              services={SERVICES}
+              services={services}
               totalWaiting={barberQueue.length}
             />
           </div>
@@ -322,7 +344,7 @@ export default function DashboardPage() {
           <AppointmentPopup
             appointment={activeAppointment}
             barber={selectedBarber}
-            service={SERVICES.find(
+            service={services.find(
               (s) => s.id === activeAppointment.serviceId,
             )}
             onStatusChange={handleStatusChange}
@@ -339,13 +361,31 @@ export default function DashboardPage() {
                 (b) => b.id === pendingAppointment.appointment.barberId,
               ) ?? selectedBarber
             }
-            service={SERVICES.find(
+            service={services.find(
               (s) => s.id === pendingAppointment.appointment.serviceId,
             )}
             onConfirm={() => {
               addAppointment(pendingAppointment.appointment);
               removeFromQueue(pendingAppointment.queueEntryId);
               setPendingAppointment(null);
+              // Recalculate + SMS remaining queue members
+              const remaining = queue.filter(e => e.id !== pendingAppointment.queueEntryId);
+              if (remaining.length > 0) {
+                const updatedQueue = calculateQueueWaitTimes(
+                  remaining,
+                  [...todayAppointments, pendingAppointment.appointment],
+                  barbers,
+                  services
+                );
+                setQueue(updatedQueue);
+                // Queue SMS notifications (fires when Twilio is connected)
+                updatedQueue.forEach(e => {
+                  const sms = buildWaitTimeUpdateSms(e.clientName, e.waitMinutes);
+                  console.log(`[SMS queued → ${e.clientPhone}]: ${sms}`);
+                });
+                setSmsNotice(`Wait times updated — SMS queued for ${updatedQueue.length} customer${updatedQueue.length > 1 ? "s" : ""}`);
+                setTimeout(() => setSmsNotice(null), 4000);
+              }
             }}
             onUndo={() => {
               setPendingAppointment(null);

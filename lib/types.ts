@@ -13,6 +13,7 @@ export type Barber = {
   startTime: string;  // "HH:MM" 24hr
   endTime: string;    // "HH:MM" 24hr
   lunchBreak?: { start: string; end: string };
+  serviceDurations?: Record<string, number>; // serviceId → minutes override
 };
 
 export type Customer = {

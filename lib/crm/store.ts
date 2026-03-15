@@ -3,6 +3,9 @@
 import * as React from "react";
 import type { Customer, Visit, CrmState, AddCustomerPayload, UpdateCustomerPayload, AddVisitPayload } from "./types";
 import { MOCK_CUSTOMERS, MOCK_VISITS } from "./mock";
+import { isSupabaseConfigured } from "../supabase";
+import * as dbCustomers from "../db/customers";
+import * as dbVisits from "../db/visits";
 
 const STORAGE_KEY = "barberpro.crm.v2";
 
@@ -25,8 +28,30 @@ export function getState(): CrmState {
   return state;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// HYDRATE — load initial state from Supabase or localStorage
+// ─────────────────────────────────────────────────────────────────────────────
 export function hydrate(): void {
   if (typeof window === "undefined") return;
+
+  if (isSupabaseConfigured()) {
+    // Async hydrate from Supabase — optimistic: render empty then fill in
+    Promise.all([dbCustomers.getCustomers(), dbVisits.getVisits()])
+      .then(([customers, visits]) => {
+        state = { customers, visits };
+        emit();
+      })
+      .catch((err) => {
+        console.error("[CRM] Supabase hydrate failed, falling back to localStorage:", err);
+        hydrateFromLocalStorage();
+      });
+    return;
+  }
+
+  hydrateFromLocalStorage();
+}
+
+function hydrateFromLocalStorage(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -44,6 +69,9 @@ export function hydrate(): void {
   emit();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PERSIST — write current state to localStorage (Supabase writes are per-op)
+// ─────────────────────────────────────────────────────────────────────────────
 export function persist(): void {
   if (typeof window === "undefined") return;
   try {
@@ -58,6 +86,9 @@ export function subscribe(callback: () => void): () => void {
   return () => listeners.delete(callback);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
 export function addCustomer(payload: AddCustomerPayload): Customer {
   const existingPhone = state.customers.find((c) => c.phone === payload.phone);
   if (existingPhone) throw new Error("A customer with this phone number already exists.");
@@ -80,6 +111,9 @@ export function addCustomer(payload: AddCustomerPayload): Customer {
   };
   emit();
   persist();
+  if (isSupabaseConfigured()) {
+    dbCustomers.saveCustomer(customer).catch(console.error);
+  }
   return customer;
 }
 
@@ -100,6 +134,9 @@ export function updateCustomer(id: string, patch: UpdateCustomerPayload): void {
   state = { ...state, customers };
   emit();
   persist();
+  if (isSupabaseConfigured()) {
+    dbCustomers.updateCustomer(id, patch).catch(console.error);
+  }
 }
 
 export function addVisit(payload: AddVisitPayload): Visit {
@@ -128,9 +165,15 @@ export function addVisit(payload: AddVisitPayload): Visit {
     const customers = [...state.customers];
     customers[customerIndex] = { ...c, visitCount };
     state = { ...state, customers };
+    if (isSupabaseConfigured()) {
+      dbCustomers.updateCustomer(c.id, { visitCount }).catch(console.error);
+    }
   }
   emit();
   persist();
+  if (isSupabaseConfigured()) {
+    dbVisits.saveVisit(visit).catch(console.error);
+  }
   return visit;
 }
 
@@ -141,6 +184,10 @@ export function deleteCustomer(id: string): void {
   };
   emit();
   persist();
+  if (isSupabaseConfigured()) {
+    // Cascade delete handled by FK on_delete in schema.sql
+    dbCustomers.deleteCustomer(id).catch(console.error);
+  }
 }
 
 export const actions = {
@@ -164,4 +211,3 @@ export function useCrmStore(): { state: CrmState; actions: typeof actions } {
 if (typeof window !== "undefined") {
   hydrate();
 }
-

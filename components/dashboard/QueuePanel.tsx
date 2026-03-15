@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { QueueEntry, Barber, Service } from "@/lib/types";
+import { formatWaitTime } from "@/lib/queue-utils";
 
 type Props = {
   queue: QueueEntry[];
@@ -62,8 +63,8 @@ function QueueCard({
           <span className="inline-block bg-gray-100 rounded-full px-2 py-0.5 text-xs text-gray-700 mt-1">
             {serviceName}
           </span>
-          <p className="text-xs text-gray-500 mt-1">
-            ⏱ {entry.waitMinutes} min
+          <p className={`text-xs mt-1 font-medium ${entry.waitMinutes <= 0 ? "text-green-600" : "text-gray-500"}`}>
+            ⏱ {formatWaitTime(entry.waitMinutes)}
           </p>
           <p className="text-xs text-gray-400 mt-1.5">
             Drag to schedule →
