@@ -52,18 +52,23 @@ CREATE POLICY "anon_read_queue"   ON queue_entries FOR SELECT TO anon          U
 -- (uses INSERT ... ON CONFLICT DO NOTHING so safe to re-run)
 -- ─────────────────────────────────────────────
 
-INSERT INTO services (id, name, duration_minutes, price) VALUES
-  ('s1', 'Haircut',        30, 25.00),
-  ('s2', 'Fade',           45, 35.00),
-  ('s3', 'Beard Trim',     20, 12.00),
-  ('s4', 'Haircut + Beard',60, 45.00)
-ON CONFLICT (id) DO NOTHING;
+-- Only seed if tables are empty
+INSERT INTO services (name, duration_minutes, price)
+SELECT * FROM (VALUES
+  ('Haircut',         30, 25.00::numeric),
+  ('Fade',            45, 35.00::numeric),
+  ('Beard Trim',      20, 12.00::numeric),
+  ('Haircut + Beard', 60, 45.00::numeric)
+) AS v(name, duration_minutes, price)
+WHERE NOT EXISTS (SELECT 1 FROM services LIMIT 1);
 
-INSERT INTO barbers (id, name, color, work_days, start_time, end_time, lunch_start, lunch_end, service_durations) VALUES
-  ('b1', 'Marcus', '#3b82f6', '{1,2,3,4,5}', '09:00', '18:00', '12:00', '13:00', '{}'),
-  ('b2', 'Devon',  '#10b981', '{2,3,4,5,6}', '09:00', '18:00', '13:00', '13:30', '{}'),
-  ('b3', 'Jaylen', '#8b5cf6', '{1,3,4,5,6}', '09:00', '18:00', '12:30', '13:15', '{}')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO barbers (name, color, work_days, start_time, end_time, lunch_start, lunch_end, service_durations)
+SELECT * FROM (VALUES
+  ('Marcus', '#3b82f6', ARRAY[1,2,3,4,5], '09:00', '18:00', '12:00', '13:00', '{}'::jsonb),
+  ('Devon',  '#10b981', ARRAY[2,3,4,5,6], '09:00', '18:00', '13:00', '13:30', '{}'::jsonb),
+  ('Jaylen', '#8b5cf6', ARRAY[1,3,4,5,6], '09:00', '18:00', '12:30', '13:15', '{}'::jsonb)
+) AS v(name, color, work_days, start_time, end_time, lunch_start, lunch_end, service_durations)
+WHERE NOT EXISTS (SELECT 1 FROM barbers LIMIT 1);
 
 -- ─────────────────────────────────────────────
 -- 4. CREATE STAFF USER — Aiden's login
