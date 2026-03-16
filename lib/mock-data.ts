@@ -22,6 +22,10 @@ export const INITIAL_QUEUE: QueueEntry[] = [
   { id: "q4", clientName: "Christopher Thomas", clientPhone: "", clientEmail: "", serviceId: "s3", waitMinutes: 45, barberId: "b2", position: 2, joinedAt: new Date().toISOString() },
   { id: "q5", clientName: "Matthew Jackson", clientPhone: "", clientEmail: "", serviceId: "s2", waitMinutes: 58, barberId: "b3", position: 1, joinedAt: new Date().toISOString() },
   { id: "q6", clientName: "James Wilson", clientPhone: "", clientEmail: "", serviceId: "s1", waitMinutes: 70, barberId: "b3", position: 2, joinedAt: new Date().toISOString() },
+  { id: "q7", clientName: "Aiden Brooks", clientPhone: "+1 555-201-1019", clientEmail: "abrooks@gmail.com", serviceId: "s2", waitMinutes: 85, barberId: "b1", position: 3, joinedAt: new Date().toISOString() },
+  { id: "q8", clientName: "Tyler Nguyen", clientPhone: "+1 555-201-1020", clientEmail: "tnguyen@outlook.com", serviceId: "s1", waitMinutes: 60, barberId: "b2", position: 3, joinedAt: new Date().toISOString() },
+  { id: "q9", clientName: "DeShawn Mitchell", clientPhone: "+1 555-201-1023", clientEmail: "dmitchell@email.com", serviceId: "s4", waitMinutes: 90, barberId: "b2", position: 4, joinedAt: new Date().toISOString() },
+  { id: "q10", clientName: "Jordan Price", clientPhone: "+1 555-201-1021", clientEmail: "jprice@email.com", serviceId: "s1", waitMinutes: 95, barberId: "b3", position: 3, joinedAt: new Date().toISOString() },
 ];
 
 export const INITIAL_APPOINTMENTS: Appointment[] = [

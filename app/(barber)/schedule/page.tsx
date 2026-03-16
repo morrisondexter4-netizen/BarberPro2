@@ -11,7 +11,7 @@ import {
   useSensors,
   pointerWithin,
 } from "@dnd-kit/core";
-import { BARBERS, SERVICES } from "@/lib/mock-data";
+
 import { Appointment } from "@/lib/types";
 import { useBarberPro } from "@/lib/barberpro-context";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
@@ -48,6 +48,8 @@ export default function SchedulePage() {
 
   const {
     appointments: allAppointments,
+    barbers,
+    services,
     updateAppointmentStatus,
     cancelAppointment,
     moveAppointment,
@@ -121,7 +123,7 @@ export default function SchedulePage() {
     const apt = allAppointments.find((a) => a.id === appointmentId);
     if (!apt) return;
 
-    const service = SERVICES.find((s) => s.id === apt.serviceId);
+    const service = services.find((s) => s.id === apt.serviceId);
     if (!service) return;
 
     let dropTime: string | null = null;
@@ -172,7 +174,7 @@ export default function SchedulePage() {
       return newStartMin < aEnd && newEndMin > aStart;
     });
 
-    const targetBarber = BARBERS.find((b) => b.id === targetBarberId);
+    const targetBarber = barbers.find((b) => b.id === targetBarberId);
     if (!hasOverlap && targetBarber?.lunchBreak) {
       const lStart = timeToMinutes(targetBarber.lunchBreak.start);
       const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
@@ -290,9 +292,9 @@ export default function SchedulePage() {
         {/* Barber columns */}
         <ScheduleGrid
           date={selectedDate}
-          barbers={BARBERS}
+          barbers={barbers}
           appointments={dayAppointments}
-          services={SERVICES}
+          services={services}
           onAppointmentClick={setSelectedAppointment}
           onDragTimeChange={handleDragTimeChange}
           isDragging={isDragging}
@@ -304,9 +306,9 @@ export default function SchedulePage() {
           <ScheduleAppointmentPopup
             appointment={selectedAppointment}
             barber={
-              BARBERS.find((b) => b.id === selectedAppointment.barberId)!
+barbers.find((b) => b.id === selectedAppointment.barberId) ?? barbers[0]!
             }
-            service={SERVICES.find(
+            service={services.find(
               (s) => s.id === selectedAppointment.serviceId
             )}
             onStatusChange={handleStatusChange}

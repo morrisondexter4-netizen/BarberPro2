@@ -1,10 +1,12 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Appointment, QueueEntry } from "./types";
+import { Appointment, QueueEntry, Barber, Service } from "./types";
 import {
   saveAppointments,
   saveQueue,
   loadAppointmentsAsync, loadQueueAsync,
+  loadBarbersAsync, saveBarbers,
+  loadServicesAsync, saveServices,
   persistAppointment, persistUpdateAppointment,
   persistQueueEntry, persistDeleteQueueEntry,
 } from "./settings";
@@ -15,6 +17,10 @@ type BarberProContextType = {
   setAppointments: React.Dispatch<React.SetStateAction<Appointment[]>>;
   queue: QueueEntry[];
   setQueue: React.Dispatch<React.SetStateAction<QueueEntry[]>>;
+  barbers: Barber[];
+  setBarbers: React.Dispatch<React.SetStateAction<Barber[]>>;
+  services: Service[];
+  setServices: React.Dispatch<React.SetStateAction<Service[]>>;
   updateAppointmentStatus: (id: string, status: Appointment["status"]) => void;
   moveAppointment: (id: string, newStartTime: string, newEndTime: string) => void;
   cancelAppointment: (id: string) => void;
@@ -28,15 +34,19 @@ const BarberProContext = createContext<BarberProContextType | null>(null);
 export function BarberProProvider({ children }: { children: ReactNode }) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [queue, setQueue] = useState<QueueEntry[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   // Load from Supabase on startup; fall back to localStorage if Supabase is not configured.
   // localStorage save effects below act as a local cache after hydration.
   useEffect(() => {
-    Promise.all([loadAppointmentsAsync(), loadQueueAsync()])
-      .then(([appts, q]) => {
+    Promise.all([loadAppointmentsAsync(), loadQueueAsync(), loadBarbersAsync(), loadServicesAsync()])
+      .then(([appts, q, b, s]) => {
         setAppointments(appts);
         setQueue(q);
+        setBarbers(b);
+        setServices(s);
       })
       .catch(console.error)
       .finally(() => setHydrated(true));
@@ -51,6 +61,14 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hydrated) saveQueue(queue);
   }, [queue, hydrated]);
+
+  useEffect(() => {
+    if (hydrated && barbers.length > 0) saveBarbers(barbers);
+  }, [barbers, hydrated]);
+
+  useEffect(() => {
+    if (hydrated && services.length > 0) saveServices(services);
+  }, [services, hydrated]);
 
   const updateAppointmentStatus = (id: string, status: Appointment["status"]) =>
     setAppointments(prev => {
@@ -113,6 +131,8 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
     <BarberProContext.Provider value={{
       appointments, setAppointments,
       queue, setQueue,
+      barbers, setBarbers,
+      services, setServices,
       updateAppointmentStatus,
       moveAppointment,
       cancelAppointment,

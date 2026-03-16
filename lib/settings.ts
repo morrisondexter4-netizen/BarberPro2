@@ -154,7 +154,10 @@ export function saveAppointments(appointments: Appointment[]): void {
 
 export async function loadAppointmentsAsync(): Promise<Appointment[]> {
   if (isSupabaseConfigured()) {
-    return dbAppointments.getAppointments();
+    try {
+      const appts = await dbAppointments.getAppointments();
+      if (appts.length > 0) return appts;
+    } catch { /* fall through to localStorage */ }
   }
   return loadAppointments();
 }
@@ -196,7 +199,10 @@ export function saveQueue(queue: QueueEntry[]): void {
 
 export async function loadQueueAsync(): Promise<QueueEntry[]> {
   if (isSupabaseConfigured()) {
-    return dbQueue.getQueue();
+    try {
+      const q = await dbQueue.getQueue();
+      if (q.length > 0) return q;
+    } catch { /* fall through to localStorage */ }
   }
   return loadQueue();
 }

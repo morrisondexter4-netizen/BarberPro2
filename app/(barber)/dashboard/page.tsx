@@ -10,35 +10,16 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import {
-  BARBERS,
-  SERVICES as MOCK_SERVICES,
-} from "@/lib/mock-data";
 import type { Barber, Appointment, Service } from "@/lib/types";
 import type { Customer as CrmCustomer } from "@/lib/crm/types";
 import { MOCK_CUSTOMERS } from "@/lib/crm/mock";
 import { useBarberPro } from "@/lib/barberpro-context";
-import { loadServicesAsync } from "@/lib/settings";
 import { calculateQueueWaitTimes, buildWaitTimeUpdateSms } from "@/lib/queue-utils";
 import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
 import QueuePanel from "@/components/dashboard/QueuePanel";
 import AppointmentPopup from "@/components/dashboard/AppointmentPopup";
 import DragConfirmPopup from "@/components/dashboard/DragConfirmPopup";
-
-const BARBERS_STORAGE_KEY = "barberpro.shopSettings.barbers";
-
-function loadBarbers(): Barber[] {
-  if (typeof window === "undefined") return BARBERS;
-  try {
-    const raw = localStorage.getItem(BARBERS_STORAGE_KEY);
-    if (!raw) return BARBERS;
-    const parsed = JSON.parse(raw) as Barber[];
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : BARBERS;
-  } catch {
-    return BARBERS;
-  }
-}
 
 const CUSTOMERS_STORAGE_KEY = "barberpro.customers.v1";
 
@@ -178,18 +159,18 @@ export default function DashboardPage() {
     appointments,
     queue,
     setQueue,
+    barbers,
+    services,
     updateAppointmentStatus,
     moveAppointment,
     addAppointment,
     removeFromQueue,
   } = useBarberPro();
 
-  const [barbers, setBarbers] = useState<Barber[]>(BARBERS);
-  const [services, setServices] = useState<Service[]>(MOCK_SERVICES);
+
   const [smsNotice, setSmsNotice] = useState<string | null>(null);
 
-  useEffect(() => { setBarbers(loadBarbers()); }, []);
-  useEffect(() => { loadServicesAsync().then(setServices); }, []);
+
 
   // Recalculate wait times whenever queue, appointments, barbers, or services change
   const todayAppointments = appointments.filter(
@@ -203,7 +184,7 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointments, barbers, services]);
 
-  const [selectedBarberId, setSelectedBarberId] = useState(BARBERS[0].id);
+  const [selectedBarberId, setSelectedBarberId] = useState<string>("b1");
   const [activeAppointment, setActiveAppointment] =
     useState<Appointment | null>(null);
   const [pendingAppointment, setPendingAppointment] = useState<{

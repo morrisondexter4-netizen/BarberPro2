@@ -316,7 +316,7 @@ export default function ScheduleGrid({
       </div>
 
       {/* Scrollable body */}
-      <div className="flex flex-1 overflow-y-auto">
+      <div className="flex flex-1 overflow-y-auto pt-3">
         {/* Time gutter */}
         <div
           className="w-14 shrink-0 relative bg-white"

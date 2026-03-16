@@ -19,6 +19,11 @@ export const MOCK_CUSTOMERS: Customer[] = [
   { id: "cust-016", firstName: "Andrew", lastName: "Walker", phone: "+1 555-201-1016", email: "awalker@outlook.com", createdAt: "2024-07-20T09:00:00Z", notes: "", visitCount: 11 },
   { id: "cust-017", firstName: "Joshua", lastName: "Hall", phone: "+1 555-201-1017", email: "jhall@email.com", createdAt: "2024-08-01T10:00:00Z", notes: "Likes fades. Book with Marcus.", visitCount: 5 },
   { id: "cust-018", firstName: "Kenneth", lastName: "Allen", phone: "+1 555-201-1018", email: "kallen@email.com", createdAt: "2024-08-15T14:00:00Z", notes: "Weekly regular.", visitCount: 18 },
+  { id: "cust-019", firstName: "Aiden", lastName: "Brooks", phone: "+1 555-201-1019", email: "abrooks@gmail.com", createdAt: "2026-02-10T10:00:00Z", notes: "New client. Wants a low fade.", visitCount: 2 },
+  { id: "cust-020", firstName: "Tyler", lastName: "Nguyen", phone: "+1 555-201-1020", email: "tnguyen@outlook.com", createdAt: "2026-02-18T14:00:00Z", notes: "Prefers Devon. Taper fade.", visitCount: 3 },
+  { id: "cust-021", firstName: "Jordan", lastName: "Price", phone: "+1 555-201-1021", email: "jprice@email.com", createdAt: "2026-03-01T09:00:00Z", notes: "First visit. Referred by Kenneth.", visitCount: 1 },
+  { id: "cust-022", firstName: "Isaiah", lastName: "Foster", phone: "+1 555-201-1022", email: "ifoster@gmail.com", createdAt: "2026-03-05T11:00:00Z", notes: "", visitCount: 1 },
+  { id: "cust-023", firstName: "DeShawn", lastName: "Mitchell", phone: "+1 555-201-1023", email: "dmitchell@email.com", createdAt: "2026-03-10T15:00:00Z", notes: "Bi-weekly. Haircut + beard.", visitCount: 1 },
 ];
 
 export const MOCK_VISITS: Visit[] = [
