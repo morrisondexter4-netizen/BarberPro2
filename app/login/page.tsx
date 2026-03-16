@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, FormEvent, Suspense } from "react";
+import { useState, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 function LoginForm() {
   const router = useRouter();
@@ -13,13 +13,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Auth disabled for dev — always bypass to dashboard
-  useEffect(() => {
-    router.replace(redirectTo);
-  }, [router, redirectTo]);
-
-  return null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

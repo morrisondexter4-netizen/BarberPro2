@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useBarberPro } from "@/lib/barberpro-context";
+import { useUserRole } from "@/lib/auth";
 import {
   filterByBarber,
   filterByTimePeriod,
@@ -85,9 +87,15 @@ function AlertIcon() {
 }
 
 export default function OverviewPage() {
+  const router = useRouter();
+  const role = useUserRole();
   const [selectedBarberId, setSelectedBarberId] = useState<string>("all");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("week");
   const { appointments } = useBarberPro();
+
+  useEffect(() => {
+    if (role === "barber") router.replace("/dashboard");
+  }, [role, router]);
 
   const metrics = useMemo(() => {
     const byBarber = filterByBarber(appointments, selectedBarberId);

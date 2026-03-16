@@ -2,12 +2,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "./nav";
+import { useUserRole } from "@/lib/auth";
 
 export default function BottomNav() {
   const pathname = usePathname();
+  const role = useUserRole();
+  const visibleItems = role === "barber"
+    ? NAV_ITEMS.filter((item) => item.href !== "/overview")
+    : NAV_ITEMS;
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex z-50">
-      {NAV_ITEMS.map((item) => {
+      {visibleItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
         return (
           <Link

@@ -2,13 +2,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "./nav";
+import { useUserRole } from "@/lib/auth";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const role = useUserRole();
+  const visibleItems = role === "barber"
+    ? NAV_ITEMS.filter((item) => item.href !== "/overview")
+    : NAV_ITEMS;
+
   return (
     <aside className="hidden md:flex flex-col w-56 bg-gray-50 border-r border-gray-200 shrink-0">
       <nav className="flex flex-col gap-1 px-2 pt-3">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
           return (
             <Link
