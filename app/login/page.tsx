@@ -14,16 +14,12 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If Supabase is not configured, redirect straight to dashboard (localStorage mode)
+  // Auth disabled for dev — always bypass to dashboard
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      router.replace("/dashboard");
-    }
-  }, [router]);
+    router.replace(redirectTo);
+  }, [router, redirectTo]);
 
-  if (!isSupabaseConfigured()) {
-    return null;
-  }
+  return null;
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();

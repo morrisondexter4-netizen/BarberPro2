@@ -65,7 +65,8 @@ export function saveBarbers(barbers: Barber[]): void {
 
 export async function loadBarbersAsync(): Promise<Barber[]> {
   if (isSupabaseConfigured()) {
-    return dbBarbers.getBarbers();
+    const barbers = await dbBarbers.getBarbers();
+    if (barbers.length > 0) return barbers;
   }
   return loadBarbers();
 }
@@ -92,7 +93,8 @@ export function saveServices(services: Service[]): void {
 
 export async function loadServicesAsync(): Promise<Service[]> {
   if (isSupabaseConfigured()) {
-    return dbServices.getServices();
+    const services = await dbServices.getServices();
+    if (services.length > 0) return services;
   }
   return loadServices();
 }
