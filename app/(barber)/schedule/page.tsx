@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -12,8 +12,9 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 
-import { Appointment } from "@/lib/types";
+import { Appointment, ShopHours } from "@/lib/types";
 import { useBarberPro } from "@/lib/barberpro-context";
+import { loadShopSettingsAsync } from "@/lib/settings";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
 import ScheduleAppointmentPopup from "@/components/schedule/ScheduleAppointmentPopup";
 
@@ -34,6 +35,11 @@ export default function SchedulePage() {
     const day = new Date().getDay();
     return day === 0 ? 6 : day - 1;
   });
+  const [shopHoursMap, setShopHoursMap] = useState<Record<string, ShopHours>>({});
+
+  useEffect(() => {
+    loadShopSettingsAsync().then((s) => setShopHoursMap(s.hours));
+  }, []);
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -87,6 +93,26 @@ export default function SchedulePage() {
   const dayAppointments = allAppointments.filter(
     (a) => a.date === selectedDate
   );
+
+  const { startHour, endHour } = useMemo(() => {
+    const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dayIndex = new Date(selectedDate + "T12:00:00").getDay();
+    const dayKey = DAY_KEYS[dayIndex];
+    const hours = shopHoursMap[dayKey];
+    if (hours?.open && hours.openTime && hours.closeTime) {
+      return {
+        startHour: parseInt(hours.openTime.split(":")[0], 10),
+        endHour: parseInt(hours.closeTime.split(":")[0], 10),
+      };
+    }
+    // Fallback: derive from barber hours
+    if (barbers.length > 0) {
+      const starts = barbers.map((b) => parseInt((b.startTime ?? "09:00").split(":")[0], 10));
+      const ends = barbers.map((b) => parseInt((b.endTime ?? "18:00").split(":")[0], 10));
+      return { startHour: Math.min(...starts), endHour: Math.max(...ends) };
+    }
+    return { startHour: 8, endHour: 19 };
+  }, [shopHoursMap, selectedDate, barbers]);
 
   const isDragging = activeDragId !== null;
 
@@ -150,7 +176,15 @@ export default function SchedulePage() {
     const newEndMin = newStartMin + service.durationMinutes;
     const newEndTime = minutesToTime(newEndMin);
 
-    if (newStartMin < 8 * 60 || newEndMin > 19 * 60) {
+    const targetBarber = barbers.find((b) => b.id === targetBarberId);
+    const barberStartMin = targetBarber
+      ? timeToMinutes(targetBarber.startTime ?? `${startHour}:00`)
+      : startHour * 60;
+    const barberEndMin = targetBarber
+      ? timeToMinutes(targetBarber.endTime ?? `${endHour}:00`)
+      : endHour * 60;
+
+    if (newStartMin < barberStartMin || newEndMin > barberEndMin) {
       setDropReject({
         time: dropTime,
         barberId: targetBarberId,
@@ -173,8 +207,6 @@ export default function SchedulePage() {
       const aEnd = timeToMinutes(a.endTime);
       return newStartMin < aEnd && newEndMin > aStart;
     });
-
-    const targetBarber = barbers.find((b) => b.id === targetBarberId);
     if (!hasOverlap && targetBarber?.lunchBreak) {
       const lStart = timeToMinutes(targetBarber.lunchBreak.start);
       const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
@@ -300,6 +332,8 @@ export default function SchedulePage() {
           isDragging={isDragging}
           draggedServiceId={draggedServiceId}
           dropReject={dropReject}
+          startHour={startHour}
+          endHour={endHour}
         />
 
         {selectedAppointment && (

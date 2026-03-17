@@ -16,9 +16,7 @@ type Props = {
   dropReject: { time: string; durationMinutes: number } | null;
 };
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
 const HOUR_HEIGHT = 80;
-const START_HOUR = 8;
 
 function formatHour(hour: number): string {
   if (hour === 12) return "12 PM";
@@ -88,7 +86,7 @@ function BookedAppointmentCard({
       {...listeners}
       style={style}
       onClick={onClick}
-      className={`h-full w-full rounded-lg border-l-4 px-2.5 py-1.5 overflow-hidden cursor-grab active:cursor-grabbing hover:brightness-95 transition-all duration-150 ${
+      className={`h-full w-full rounded-lg border-l-4 px-2.5 py-1.5 overflow-hidden cursor-grab active:cursor-grabbing hover:brightness-95 transition-all duration-150 flex flex-col justify-center ${
         isNoShow ? "opacity-50" : ""
       }`}
     >
@@ -131,6 +129,13 @@ export default function CalendarPanel({
   onDragTimeChange,
   dropReject,
 }: Props) {
+  // Derive grid bounds from barber's working hours
+  const startHour = parseInt((barber.startTime ?? "08:00").split(":")[0], 10);
+  const [endH, endM] = (barber.endTime ?? "19:00").split(":").map(Number);
+  const endHour = endM > 0 ? endH + 1 : endH;
+  const totalGridHours = endHour - startHour;
+  const HOURS = Array.from({ length: totalGridHours }, (_, i) => i + startHour);
+
   const [dragOverTime, setDragOverTime] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
 
@@ -187,8 +192,8 @@ export default function CalendarPanel({
 
       const totalMinutes =
         Math.round(relativeY / (HOUR_HEIGHT / 60) / 15) * 15;
-      const clampedMinutes = Math.max(0, Math.min(11 * 60, totalMinutes));
-      const hours = Math.floor(clampedMinutes / 60) + START_HOUR;
+      const clampedMinutes = Math.max(0, Math.min(totalGridHours * 60, totalMinutes));
+      const hours = Math.floor(clampedMinutes / 60) + startHour;
       const mins = clampedMinutes % 60;
       const time = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
       setDragOverTime(time);
@@ -197,14 +202,14 @@ export default function CalendarPanel({
 
     window.addEventListener("pointermove", handlePointerMove);
     return () => window.removeEventListener("pointermove", handlePointerMove);
-  }, [isDragging, onDragTimeChange]);
+  }, [isDragging, onDragTimeChange, totalGridHours, startHour]);
 
   const totalHeight = HOURS.length * HOUR_HEIGHT;
 
   const highlightBar = useMemo(() => {
     if (dropReject) {
       const startMin = timeToMinutes(dropReject.time);
-      const top = ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+      const top = ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
       const height = (dropReject.durationMinutes / 60) * HOUR_HEIGHT;
       return { top, height, isReject: true, time: dropReject.time };
     }
@@ -213,12 +218,12 @@ export default function CalendarPanel({
       const endMin = startMin + draggedService.durationMinutes;
       const slotEnd = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
       const overLunch = isLunchBlocked(barber, dragOverTime, slotEnd);
-      const top = ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+      const top = ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
       const height = (draggedService.durationMinutes / 60) * HOUR_HEIGHT;
       return { top, height, isReject: overLunch, time: dragOverTime };
     }
     return null;
-  }, [barber, dropReject, isDragging, isOver, dragOverTime, draggedService]);
+  }, [barber, dropReject, isDragging, isOver, dragOverTime, draggedService, startHour]);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col overflow-hidden">
@@ -243,7 +248,7 @@ export default function CalendarPanel({
             <div
               key={hour}
               className="absolute left-0 right-0"
-              style={{ top: (hour - START_HOUR) * HOUR_HEIGHT }}
+              style={{ top: (hour - startHour) * HOUR_HEIGHT }}
             >
               <div className="flex items-start">
                 <span className="text-xs text-gray-400 w-14 flex-shrink-0 -translate-y-2 text-right pr-3 select-none">
@@ -276,7 +281,7 @@ export default function CalendarPanel({
               const lunchStart = timeToMinutes(barber.lunchBreak.start);
               const lunchEnd = timeToMinutes(barber.lunchBreak.end);
               const top =
-                ((lunchStart - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+                ((lunchStart - startHour * 60) / 60) * HOUR_HEIGHT;
               const height = ((lunchEnd - lunchStart) / 60) * HOUR_HEIGHT;
               return (
                 <div
@@ -321,7 +326,7 @@ export default function CalendarPanel({
             const startMin = timeToMinutes(apt.startTime);
             const endMin = timeToMinutes(apt.endTime);
             const top =
-              ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+              ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
             const rawHeight = ((endMin - startMin) / 60) * HOUR_HEIGHT;
             const height = Math.max(rawHeight, 20);
             const service = serviceMap[apt.serviceId];

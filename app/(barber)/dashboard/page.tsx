@@ -275,7 +275,11 @@ export default function DashboardPage() {
       const newStartMin = timeToMinutes(dropTime);
       const newEndMin = newStartMin + service.durationMinutes;
 
-      if (newStartMin < 8 * 60 || newEndMin > 19 * 60) {
+      const targetBarber = barbers.find((b) => b.id === barberId);
+      const reschedBarberStartMin = timeToMinutes(targetBarber?.startTime ?? "09:00");
+      const reschedBarberEndMin = timeToMinutes(targetBarber?.endTime ?? "18:00");
+
+      if (newStartMin < reschedBarberStartMin || newEndMin > reschedBarberEndMin) {
         setDropReject({
           time: dropTime,
           durationMinutes: service.durationMinutes,
@@ -297,8 +301,6 @@ export default function DashboardPage() {
         const aEnd = timeToMinutes(a.endTime);
         return newStartMin < aEnd && newEndMin > aStart;
       });
-
-      const targetBarber = barbers.find((b) => b.id === barberId);
       if (!hasOverlap && targetBarber?.lunchBreak) {
         const lStart = timeToMinutes(targetBarber.lunchBreak.start);
         const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
@@ -329,7 +331,11 @@ export default function DashboardPage() {
     const newStartMin = timeToMinutes(dropTime);
     const newEndMin = newStartMin + service.durationMinutes;
 
-    if (newStartMin < 8 * 60 || newEndMin > 19 * 60) {
+    const targetBarber = barbers.find((b) => b.id === barberId);
+    const queueBarberStartMin = timeToMinutes(targetBarber?.startTime ?? "09:00");
+    const queueBarberEndMin = timeToMinutes(targetBarber?.endTime ?? "18:00");
+
+    if (newStartMin < queueBarberStartMin || newEndMin > queueBarberEndMin) {
       setDropReject({
         time: dropTime,
         durationMinutes: service.durationMinutes,
@@ -350,8 +356,6 @@ export default function DashboardPage() {
       const aEnd = timeToMinutes(a.endTime);
       return newStartMin < aEnd && newEndMin > aStart;
     });
-
-    const targetBarber = barbers.find((b) => b.id === barberId);
     if (!hasOverlap && targetBarber?.lunchBreak) {
       const lStart = timeToMinutes(targetBarber.lunchBreak.start);
       const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
