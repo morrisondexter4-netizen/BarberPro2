@@ -11,6 +11,7 @@ type Props = {
   services: Service[];
   onAppointmentClick: (apt: Appointment) => void;
   isDragging: boolean;
+  hoveredNoShowId: string | null;
   draggedServiceId: string | null;
   onDragTimeChange: (time: string | null) => void;
   dropReject: { time: string; durationMinutes: number } | null;
@@ -125,6 +126,7 @@ export default function CalendarPanel({
   services,
   onAppointmentClick,
   isDragging,
+  hoveredNoShowId,
   draggedServiceId,
   onDragTimeChange,
   dropReject,
@@ -132,14 +134,14 @@ export default function CalendarPanel({
   // Derive grid bounds from barber's working hours
   const startHour = parseInt((barber.startTime ?? "08:00").split(":")[0], 10);
   const [endH, endM] = (barber.endTime ?? "19:00").split(":").map(Number);
-  const endHour = endM > 0 ? endH + 1 : endH;
+  const endHour = endM > 0 ? endH + 2 : endH + 1;
   const totalGridHours = endHour - startHour;
   const HOURS = Array.from({ length: totalGridHours }, (_, i) => i + startHour);
 
   const [dragOverTime, setDragOverTime] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
 
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef } = useDroppable({
     id: `timeline-${barber.id}`,
   });
 
@@ -213,7 +215,7 @@ export default function CalendarPanel({
       const height = (dropReject.durationMinutes / 60) * HOUR_HEIGHT;
       return { top, height, isReject: true, time: dropReject.time };
     }
-    if (isDragging && isOver && dragOverTime && draggedService) {
+    if (isDragging && dragOverTime && draggedService) {
       const startMin = timeToMinutes(dragOverTime);
       const endMin = startMin + draggedService.durationMinutes;
       const slotEnd = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
@@ -223,7 +225,7 @@ export default function CalendarPanel({
       return { top, height, isReject: overLunch, time: dragOverTime };
     }
     return null;
-  }, [barber, dropReject, isDragging, isOver, dragOverTime, draggedService, startHour]);
+  }, [barber, dropReject, isDragging, dragOverTime, draggedService, startHour]);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col overflow-hidden">
@@ -240,6 +242,7 @@ export default function CalendarPanel({
       <div className="flex-1 overflow-y-auto px-2 pt-2 pb-4">
         <div
           ref={mergeRefs}
+          data-timeline-barber-id={barber.id}
           className="relative"
           style={{ height: totalHeight }}
         >
@@ -328,7 +331,7 @@ export default function CalendarPanel({
             const top =
               ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
             const rawHeight = ((endMin - startMin) / 60) * HOUR_HEIGHT;
-            const height = Math.max(rawHeight, 20);
+            const height = Math.max(rawHeight, 52);
             const service = serviceMap[apt.serviceId];
             const blocked = isLunchBlocked(barber, apt.startTime, apt.endTime);
             const isOpenSlotBlocked =
@@ -342,6 +345,28 @@ export default function CalendarPanel({
                   style={{ top: top + 1, height: height - 2 }}
                 >
                   <span className="text-xs font-medium text-gray-500">Lunch</span>
+                </div>
+              );
+            }
+
+            if (apt.status === "no-show") {
+              return (
+                <div
+                  key={apt.id}
+                  data-no-show-apt-id={apt.id}
+                  className={`absolute left-16 right-2 transition-all ${
+                    hoveredNoShowId === apt.id
+                      ? "ring-2 ring-blue-400 ring-offset-1 rounded-lg z-10"
+                      : ""
+                  }`}
+                  style={{ top: top + 1, height: height - 2 }}
+                >
+                  <BookedAppointmentCard
+                    appointment={apt}
+                    barber={barber}
+                    serviceName={service?.name ?? ""}
+                    onClick={() => onAppointmentClick(apt)}
+                  />
                 </div>
               );
             }

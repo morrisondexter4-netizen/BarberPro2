@@ -49,7 +49,7 @@ function DraggableAppointmentCard({
   const [eh, em] = apt.endTime.split(":").map(Number);
   const top = (sh - startHour) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
   const height = Math.max(
-    28,
+    52,
     ((eh * 60 + em - (sh * 60 + sm)) / 60) * HOUR_HEIGHT
   );
 
@@ -72,7 +72,7 @@ function DraggableAppointmentCard({
       <p className="text-xs font-semibold text-gray-900 truncate">
         {apt.clientName}
       </p>
-      {height >= 40 && (
+      {height >= 44 && (
         <p className="text-xs text-gray-500 truncate">{service?.name}</p>
       )}
     </div>
@@ -104,7 +104,7 @@ function DroppableCancelledCard({
   const [eh, em] = apt.endTime.split(":").map(Number);
   const top = (sh - startHour) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
   const height = Math.max(
-    28,
+    52,
     ((eh * 60 + em - (sh * 60 + sm)) / 60) * HOUR_HEIGHT
   );
 
@@ -132,7 +132,7 @@ function DroppableCancelledCard({
       >
         {apt.clientName}
       </p>
-      {height >= 40 && (
+      {height >= 44 && (
         <p className="text-xs text-gray-500 truncate">{service?.name}</p>
       )}
     </div>

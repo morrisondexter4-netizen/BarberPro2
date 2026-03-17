@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useDraggable } from "@dnd-kit/core";
 import { QueueEntry, Barber, Service } from "@/lib/types";
 import { formatWaitTime } from "@/lib/queue-utils";
 
@@ -10,38 +9,32 @@ type Props = {
   barber: Barber;
   services: Service[];
   totalWaiting: number;
+  onCardMouseDown: (e: React.MouseEvent, entryId: string) => void;
 };
 
 function QueueCard({
   entry,
   serviceName,
   isNext,
+  onMouseDown,
 }: {
   entry: QueueEntry;
   serviceName: string;
   isNext: boolean;
+  onMouseDown: (e: React.MouseEvent, entryId: string) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: entry.id });
-
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined;
-
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={`bg-white rounded-xl border p-3 mb-2 transition-all duration-150 cursor-grab active:cursor-grabbing ${
+      data-queue-id={entry.id}
+      onMouseDown={(e) => onMouseDown(e, entry.id)}
+      className={`bg-white rounded-xl border p-3 mb-2 transition-all duration-150 cursor-grab active:cursor-grabbing select-none ${
         isNext
           ? "border-l-4 border-l-amber-400 border-gray-200 shadow-md"
           : "border-gray-200"
-      } ${isDragging ? "opacity-50 shadow-lg z-50 relative" : ""}`}
-      {...attributes}
-      {...listeners}
+      }`}
     >
       <div className="flex items-start gap-2">
-        <div className="flex-shrink-0 text-gray-300 mt-0.5 select-none">
+        <div className="flex-shrink-0 text-gray-300 mt-0.5">
           <svg
             width="14"
             height="14"
@@ -63,12 +56,14 @@ function QueueCard({
           <span className="inline-block bg-gray-100 rounded-full px-2 py-0.5 text-xs text-gray-700 mt-1">
             {serviceName}
           </span>
-          <p className={`text-xs mt-1 font-medium ${entry.waitMinutes <= 0 ? "text-green-600" : "text-gray-500"}`}>
+          <p
+            className={`text-xs mt-1 font-medium ${
+              entry.waitMinutes <= 0 ? "text-green-600" : "text-gray-500"
+            }`}
+          >
             ⏱ {formatWaitTime(entry.waitMinutes)}
           </p>
-          <p className="text-xs text-gray-400 mt-1.5">
-            Drag to schedule →
-          </p>
+          <p className="text-xs text-gray-400 mt-1.5">Drag to schedule →</p>
         </div>
       </div>
     </div>
@@ -79,6 +74,7 @@ export default function QueuePanel({
   queue,
   services,
   totalWaiting,
+  onCardMouseDown,
 }: Props) {
   const serviceMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -115,6 +111,7 @@ export default function QueuePanel({
             entry={entry}
             serviceName={serviceMap[entry.serviceId] ?? "Unknown"}
             isNext={entry.position === 1}
+            onMouseDown={onCardMouseDown}
           />
         ))}
 

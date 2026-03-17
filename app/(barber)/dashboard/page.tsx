@@ -190,6 +190,7 @@ export default function DashboardPage() {
   const [pendingAppointment, setPendingAppointment] = useState<{
     appointment: Appointment;
     queueEntryId: string;
+    replaceAptId?: string;
   } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const sensors = useSensors(
@@ -201,6 +202,21 @@ export default function DashboardPage() {
     durationMinutes: number;
   } | null>(null);
   const dragTimeRef = useRef<string | null>(null);
+
+  // Custom queue drag (pure mouse — no native HTML5 drag API)
+  const [customQueueDragId, setCustomQueueDragId] = useState<string | null>(null);
+  const [hoveredNoShowId, setHoveredNoShowId] = useState<string | null>(null);
+  const customDragCloneRef = useRef<HTMLDivElement | null>(null);
+  const customDragOffsetRef = useRef({ x: 0, y: 0 });
+  // Refs for fresh values inside mouse event handlers
+  const queueRef = useRef(queue);
+  const appointmentsRef = useRef(appointments);
+  const barbersRef = useRef(barbers);
+  const servicesRef = useRef(services);
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { appointmentsRef.current = appointments; }, [appointments]);
+  useEffect(() => { barbersRef.current = barbers; }, [barbers]);
+  useEffect(() => { servicesRef.current = services; }, [services]);
 
   const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0]!;
 
@@ -246,6 +262,165 @@ export default function DashboardPage() {
     dragTimeRef.current = time;
   }, []);
 
+  function handleQueueMouseDown(e: React.MouseEvent, entryId: string) {
+    e.preventDefault();
+    const entry = queueRef.current.find((q) => q.id === entryId);
+    if (!entry) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    customDragOffsetRef.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+
+    const service = servicesRef.current.find((s) => s.id === entry.serviceId);
+    const clone = document.createElement("div");
+    clone.style.cssText = [
+      "position:fixed",
+      `left:${e.clientX - customDragOffsetRef.current.x}px`,
+      `top:${e.clientY - customDragOffsetRef.current.y}px`,
+      `width:${rect.width}px`,
+      "pointer-events:none",
+      "z-index:9999",
+      "background:white",
+      "border:1px solid #e5e7eb",
+      "border-radius:12px",
+      "padding:12px",
+      "box-shadow:0 20px 40px rgba(0,0,0,0.15)",
+      "opacity:0.95",
+    ].join(";");
+    clone.innerHTML = `
+      <p style="font-weight:600;font-size:14px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px">${entry.clientName}</p>
+      <span style="display:inline-block;background:#f3f4f6;border-radius:9999px;padding:2px 8px;font-size:12px;color:#374151">${service?.name ?? ""}</span>
+      <p style="font-size:12px;color:#9ca3af;margin:6px 0 0">Drag to schedule →</p>
+    `;
+    document.body.appendChild(clone);
+    customDragCloneRef.current = clone;
+
+    setCustomQueueDragId(entryId);
+    setActiveDragId(entryId);
+    setDropReject(null);
+  }
+
+  useEffect(() => {
+    if (!customQueueDragId) return;
+    const entryId = customQueueDragId;
+
+    function handleMouseMove(e: MouseEvent) {
+      const clone = customDragCloneRef.current;
+      if (clone) {
+        clone.style.left = `${e.clientX - customDragOffsetRef.current.x}px`;
+        clone.style.top = `${e.clientY - customDragOffsetRef.current.y}px`;
+      }
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const noShowSlot = el?.closest("[data-no-show-apt-id]");
+      setHoveredNoShowId(noShowSlot?.getAttribute("data-no-show-apt-id") ?? null);
+    }
+
+    function handleMouseUp(e: MouseEvent) {
+      if (customDragCloneRef.current) {
+        document.body.removeChild(customDragCloneRef.current);
+        customDragCloneRef.current = null;
+      }
+      setCustomQueueDragId(null);
+      setActiveDragId(null);
+      setHoveredNoShowId(null);
+
+      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const noShowSlotEl = el?.closest("[data-no-show-apt-id]");
+      const timelineEl = el?.closest("[data-timeline-barber-id]");
+
+      if (noShowSlotEl) {
+        const noShowAptId = noShowSlotEl.getAttribute("data-no-show-apt-id");
+        if (!noShowAptId) return;
+        const apt = appointmentsRef.current.find((a) => a.id === noShowAptId);
+        const entry = queueRef.current.find((q) => q.id === entryId);
+        if (!apt || !entry) return;
+        const svc = servicesRef.current.find((s) => s.id === entry.serviceId);
+        const endTime = svc
+          ? minutesToTime(timeToMinutes(apt.startTime) + svc.durationMinutes)
+          : apt.endTime;
+        const newApt: Appointment = {
+          id: `apt-${Date.now()}`,
+          clientName: entry.clientName,
+          clientPhone: entry.clientPhone ?? "",
+          clientEmail: entry.clientEmail ?? "",
+          serviceId: entry.serviceId,
+          barberId: apt.barberId,
+          startTime: apt.startTime,
+          endTime,
+          date: apt.date,
+          status: "scheduled",
+          fromQueue: true,
+        };
+        setPendingAppointment({ appointment: newApt, queueEntryId: entryId, replaceAptId: noShowAptId });
+      } else if (timelineEl) {
+        const barberId = timelineEl.getAttribute("data-timeline-barber-id");
+        if (!barberId) return;
+        const dropTime = dragTimeRef.current;
+        if (!dropTime) return;
+        const entry = queueRef.current.find((q) => q.id === entryId);
+        if (!entry) return;
+        const svc = servicesRef.current.find((s) => s.id === entry.serviceId);
+        if (!svc) return;
+        const newStartMin = timeToMinutes(dropTime);
+        const newEndMin = newStartMin + svc.durationMinutes;
+        const targetBarber = barbersRef.current.find((b) => b.id === barberId);
+        const barberStartMin = timeToMinutes(targetBarber?.startTime ?? "09:00");
+        const barberEndMin = timeToMinutes(targetBarber?.endTime ?? "18:00");
+        if (newStartMin < barberStartMin || newEndMin > barberEndMin) {
+          setDropReject({ time: dropTime, durationMinutes: svc.durationMinutes });
+          setTimeout(() => setDropReject(null), 600);
+          return;
+        }
+        const today = new Date().toISOString().split("T")[0];
+        const barberApts = appointmentsRef.current.filter(
+          (a) =>
+            a.barberId === barberId &&
+            a.date === today &&
+            a.clientName !== "Open Slot" &&
+            a.status !== "cancelled",
+        );
+        let hasOverlap = barberApts.some((a) => {
+          const aStart = timeToMinutes(a.startTime);
+          const aEnd = timeToMinutes(a.endTime);
+          return newStartMin < aEnd && newEndMin > aStart;
+        });
+        if (!hasOverlap && targetBarber?.lunchBreak) {
+          const lStart = timeToMinutes(targetBarber.lunchBreak.start);
+          const lEnd = timeToMinutes(targetBarber.lunchBreak.end);
+          if (newStartMin < lEnd && newEndMin > lStart) hasOverlap = true;
+        }
+        if (hasOverlap) {
+          setDropReject({ time: dropTime, durationMinutes: svc.durationMinutes });
+          setTimeout(() => setDropReject(null), 600);
+          return;
+        }
+        const newApt: Appointment = {
+          id: `apt-${Date.now()}`,
+          clientName: entry.clientName,
+          clientPhone: entry.clientPhone ?? "",
+          clientEmail: entry.clientEmail ?? "",
+          serviceId: entry.serviceId,
+          barberId,
+          startTime: dropTime,
+          endTime: minutesToTime(newEndMin),
+          date: today,
+          status: "scheduled",
+          fromQueue: true,
+        };
+        setPendingAppointment({ appointment: newApt, queueEntryId: entryId });
+      }
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [customQueueDragId]);
+
   function handleDragStart(event: DragStartEvent) {
     setActiveDragId(event.active.id as string);
     setDropReject(null);
@@ -258,6 +433,36 @@ export default function DashboardPage() {
 
     if (!over) return;
     const overId = over.id as string;
+
+    // Queue client dropped onto a no-show appointment slot
+    if (overId.startsWith("no-show-slot-") && !activeId.startsWith("reschedule-")) {
+      const noShowAptId = overId.replace("no-show-slot-", "");
+      const noShowApt = appointments.find((a) => a.id === noShowAptId);
+      const entry = queue.find((q) => q.id === activeId);
+      if (!noShowApt || !entry) return;
+
+      const service = services.find((s) => s.id === entry.serviceId);
+      const endTime = service
+        ? minutesToTime(timeToMinutes(noShowApt.startTime) + service.durationMinutes)
+        : noShowApt.endTime;
+
+      const newApt: Appointment = {
+        id: `apt-${Date.now()}`,
+        clientName: entry.clientName,
+        clientPhone: entry.clientPhone ?? "",
+        clientEmail: entry.clientEmail ?? "",
+        serviceId: entry.serviceId,
+        barberId: noShowApt.barberId,
+        startTime: noShowApt.startTime,
+        endTime,
+        date: noShowApt.date,
+        status: "scheduled",
+        fromQueue: true,
+      };
+      setPendingAppointment({ appointment: newApt, queueEntryId: activeId, replaceAptId: noShowAptId });
+      return;
+    }
+
     if (!overId.startsWith("timeline-")) return;
 
     const barberId = overId.replace("timeline-", "");
@@ -437,6 +642,7 @@ export default function DashboardPage() {
               services={services}
               onAppointmentClick={(apt) => setActiveAppointment(apt)}
               isDragging={isTimelineDragging}
+              hoveredNoShowId={hoveredNoShowId}
               draggedServiceId={draggedServiceId}
               onDragTimeChange={handleDragTimeChange}
               dropReject={dropReject}
@@ -448,6 +654,7 @@ export default function DashboardPage() {
               barber={selectedBarber}
               services={services}
               totalWaiting={barberQueue.length}
+              onCardMouseDown={handleQueueMouseDown}
             />
           </div>
         </div>
@@ -478,6 +685,9 @@ export default function DashboardPage() {
               (s) => s.id === pendingAppointment.appointment.serviceId,
             )}
             onConfirm={() => {
+              if (pendingAppointment.replaceAptId) {
+                updateAppointmentStatus(pendingAppointment.replaceAptId, "cancelled");
+              }
               addAppointment(pendingAppointment.appointment);
               removeFromQueue(pendingAppointment.queueEntryId);
               setPendingAppointment(null);
@@ -506,6 +716,7 @@ export default function DashboardPage() {
           />
         )}
       </div>
+
     </DndContext>
   );
 }

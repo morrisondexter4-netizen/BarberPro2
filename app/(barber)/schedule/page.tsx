@@ -102,14 +102,14 @@ export default function SchedulePage() {
     if (hours?.open && hours.openTime && hours.closeTime) {
       return {
         startHour: parseInt(hours.openTime.split(":")[0], 10),
-        endHour: parseInt(hours.closeTime.split(":")[0], 10),
+        endHour: parseInt(hours.closeTime.split(":")[0], 10) + 1,
       };
     }
     // Fallback: derive from barber hours
     if (barbers.length > 0) {
       const starts = barbers.map((b) => parseInt((b.startTime ?? "09:00").split(":")[0], 10));
       const ends = barbers.map((b) => parseInt((b.endTime ?? "18:00").split(":")[0], 10));
-      return { startHour: Math.min(...starts), endHour: Math.max(...ends) };
+      return { startHour: Math.min(...starts), endHour: Math.max(...ends) + 1 };
     }
     return { startHour: 8, endHour: 19 };
   }, [shopHoursMap, selectedDate, barbers]);
