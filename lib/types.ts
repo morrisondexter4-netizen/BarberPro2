@@ -38,6 +38,11 @@ export type QueueEntry = {
   barberId: string;
   position: number;
   joinedAt: string;
+  // Offer fields — set when a barber drags a queue entry to a time slot
+  status?: 'waiting' | 'offered';
+  offeredTime?: string;   // "HH:MM" 24hr
+  offeredDate?: string;   // "YYYY-MM-DD"
+  offeredBarberId?: string;
 };
 
 export type Appointment = {

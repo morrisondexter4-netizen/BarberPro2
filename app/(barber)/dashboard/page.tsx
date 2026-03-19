@@ -165,6 +165,7 @@ export default function DashboardPage() {
     moveAppointment,
     addAppointment,
     removeFromQueue,
+    offerQueueSlot,
   } = useBarberPro();
 
 
@@ -184,7 +185,15 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointments, barbers, services]);
 
-  const [selectedBarberId, setSelectedBarberId] = useState<string>("b1");
+  const [selectedBarberId, setSelectedBarberId] = useState<string>("");
+
+  // Set to first available barber once loaded (replaces hardcoded "b1" mock ID)
+  useEffect(() => {
+    if (barbers.length > 0 && !barbers.find(b => b.id === selectedBarberId)) {
+      setSelectedBarberId(barbers[0].id);
+    }
+  }, [barbers]);
+
   const [activeAppointment, setActiveAppointment] =
     useState<Appointment | null>(null);
   const [pendingAppointment, setPendingAppointment] = useState<{
@@ -202,10 +211,17 @@ export default function DashboardPage() {
   } | null>(null);
   const dragTimeRef = useRef<string | null>(null);
 
-  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0]!;
+  // Must be declared before any early returns to satisfy rules-of-hooks
+  const handleDragTimeChange = useCallback((time: string | null) => {
+    dragTimeRef.current = time;
+  }, []);
 
+  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0];
+  if (!selectedBarber) return null; // barbers still loading
+
+  // Include 'waiting' and 'offered' entries — offered entries show "Awaiting confirmation"
   const barberQueue = queue
-    .filter((e) => e.barberId === selectedBarberId)
+    .filter((e) => !e.barberId || e.barberId === selectedBarberId || e.offeredBarberId === selectedBarberId)
     .sort((a, b) => a.position - b.position);
 
   const barberAppointments = (() => {
@@ -241,10 +257,6 @@ export default function DashboardPage() {
     }
     return null;
   })();
-
-  const handleDragTimeChange = useCallback((time: string | null) => {
-    dragTimeRef.current = time;
-  }, []);
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDragId(event.active.id as string);
@@ -370,7 +382,7 @@ export default function DashboardPage() {
     }
 
     const newApt: Appointment = {
-      id: `apt-${Date.now()}`,
+      id: crypto.randomUUID(),
       clientName: entry.clientName,
       clientPhone: entry.clientPhone ?? "",
       clientEmail: entry.clientEmail ?? "",
@@ -474,27 +486,17 @@ export default function DashboardPage() {
               (s) => s.id === pendingAppointment.appointment.serviceId,
             )}
             onConfirm={() => {
-              addAppointment(pendingAppointment.appointment);
-              removeFromQueue(pendingAppointment.queueEntryId);
+              // Offer the slot to the customer instead of immediately creating the appointment.
+              // The customer's status page will show Accept/Decline — appointment is created only on Accept.
+              offerQueueSlot(
+                pendingAppointment.queueEntryId,
+                pendingAppointment.appointment.startTime,
+                pendingAppointment.appointment.date,
+                pendingAppointment.appointment.barberId,
+              );
               setPendingAppointment(null);
-              // Recalculate + SMS remaining queue members
-              const remaining = queue.filter(e => e.id !== pendingAppointment.queueEntryId);
-              if (remaining.length > 0) {
-                const updatedQueue = calculateQueueWaitTimes(
-                  remaining,
-                  [...todayAppointments, pendingAppointment.appointment],
-                  barbers,
-                  services
-                );
-                setQueue(updatedQueue);
-                // Queue SMS notifications (fires when Twilio is connected)
-                updatedQueue.forEach(e => {
-                  const sms = buildWaitTimeUpdateSms(e.clientName, e.waitMinutes);
-                  console.log(`[SMS queued → ${e.clientPhone}]: ${sms}`);
-                });
-                setSmsNotice(`Wait times updated — SMS queued for ${updatedQueue.length} customer${updatedQueue.length > 1 ? "s" : ""}`);
-                setTimeout(() => setSmsNotice(null), 4000);
-              }
+              setSmsNotice("Slot offered — waiting for customer confirmation");
+              setTimeout(() => setSmsNotice(null), 4000);
             }}
             onUndo={() => {
               setPendingAppointment(null);

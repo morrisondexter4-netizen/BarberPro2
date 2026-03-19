@@ -3,15 +3,18 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  loadServices,
-  loadShopSettings,
+  loadServicesAsync,
+  loadShopSettingsAsync,
   loadQueue,
   saveQueue,
   upsertCustomer,
+  persistQueueEntry,
 } from "@/lib/settings";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Service, QueueEntry } from "@/lib/types";
 
 const TOTAL_STEPS = 2;
+
 
 export default function JoinQueuePage() {
   const router = useRouter();
@@ -25,13 +28,11 @@ export default function JoinQueuePage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [position, setPosition] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setServices(loadServices());
-    const s = loadShopSettings();
-    if (s.shopName) setShopName(s.shopName);
+    loadServicesAsync().then(setServices);
+    loadShopSettingsAsync().then(s => { if (s.shopName) setShopName(s.shopName); });
   }, []);
 
   function goNext() {
@@ -43,26 +44,42 @@ export default function JoinQueuePage() {
     setStep((s) => Math.max(s - 1, 1));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!selectedService || !name.trim() || !phone.trim()) return;
-    const customer = upsertCustomer(name, phone, email);
-    const currentQueue = loadQueue();
-    const newEntry: QueueEntry = {
-      id: `q-${Date.now()}`,
-      clientName: name,
-      clientPhone: phone,
-      clientEmail: email,
-      customerId: customer.id,
-      serviceId: selectedService.id,
-      barberId: "first-available",
-      waitMinutes: 0,
-      position: currentQueue.length + 1,
-      joinedAt: new Date().toISOString(),
-    };
-    saveQueue([...currentQueue, newEntry]);
-    setPosition(newEntry.position);
-    setSubmitted(true);
-    goNext();
+    setIsSubmitting(true);
+    try {
+      // Get accurate position from Supabase, fall back to localStorage count
+      let position = loadQueue().length + 1;
+      if (isSupabaseConfigured()) {
+        try {
+          const { count } = await supabase
+            .from("queue_entries")
+            .select("*", { count: "exact", head: true });
+          position = (count ?? 0) + 1;
+        } catch { /* use localStorage count */ }
+      }
+
+      const customer = upsertCustomer(name, phone, email);
+      const newEntry: QueueEntry = {
+        id: crypto.randomUUID(),
+        clientName: name,
+        clientPhone: phone,
+        clientEmail: email,
+        customerId: customer.id,
+        serviceId: selectedService.id,
+        barberId: "",
+        waitMinutes: 0,
+        position,
+        joinedAt: new Date().toISOString(),
+      };
+      saveQueue([...loadQueue(), newEntry]);
+      if (isSupabaseConfigured()) {
+        await persistQueueEntry(newEntry);
+      }
+      router.push(`/book/status/${newEntry.id}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const animClass =
@@ -142,7 +159,7 @@ export default function JoinQueuePage() {
         {step === 2 && (
           <div>
             <h2 className="text-lg font-semibold text-white mb-1">Your information</h2>
-            <p className="text-sm text-gray-400 mb-5">We&apos;ll text you when your barber is ready.</p>
+            <p className="text-sm text-gray-400 mb-5">We&apos;ll show you live updates on the next page.</p>
             <div className="space-y-4">
               <div>
                 <label className="text-sm text-gray-400 block mb-1">Full name</label>
@@ -176,58 +193,15 @@ export default function JoinQueuePage() {
               </div>
               <button
                 onClick={handleSubmit}
-                disabled={!name.trim() || !phone.trim()}
+                disabled={!name.trim() || !phone.trim() || isSubmitting}
                 className="w-full bg-white text-gray-950 rounded-xl py-3 text-sm font-semibold hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-2"
               >
-                Join the queue
+                {isSubmitting ? "Joining..." : "Join the queue"}
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3 — Confirmation */}
-        {step === TOTAL_STEPS + 1 && submitted && (
-          <div className="text-center py-8">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-5">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">You&apos;re in line!</h2>
-            <p className="text-gray-400 mb-6">We&apos;ll text you when your barber is ready.</p>
-
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-8">
-              <div className="flex items-center justify-center gap-8">
-                <div className="text-center">
-                  <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Position</p>
-                  <p className="text-3xl font-bold text-white">#{position}</p>
-                </div>
-                <div className="w-px h-12 bg-gray-800" />
-                <div className="text-center">
-                  <p className="text-gray-500 text-xs uppercase tracking-wider mb-1">Est. wait</p>
-                  <p className="text-3xl font-bold text-white">--<span className="text-lg text-gray-500 ml-1">min</span></p>
-                </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-gray-800 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-500 text-sm">Service</span>
-                  <span className="text-white text-sm font-medium">{selectedService?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 text-sm">Price</span>
-                  <span className="text-white text-sm font-medium">${selectedService?.price}</span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              onClick={() => router.push("/book")}
-              className="text-gray-500 hover:text-white text-sm transition-colors"
-            >
-              ← Back to home
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

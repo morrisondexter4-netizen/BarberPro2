@@ -59,6 +59,8 @@ export async function getBarbers(): Promise<Barber[]> {
 export async function saveBarbers(barbers: Barber[]): Promise<void> {
   if (barbers.length === 0) return
   const rows = barbers.map(barberToRow)
-  const { error } = await supabase.from('barbers').upsert(rows, { onConflict: 'id' })
+  const { error } = await supabase
+    .from('barbers')
+    .upsert(rows, { onConflict: 'id' })
   if (error) throw error
 }

@@ -21,12 +21,53 @@ function QueueCard({
   serviceName: string;
   isNext: boolean;
 }) {
+  const isOffered = entry.status === 'offered';
+
   const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({ id: entry.id });
+    useDraggable({ id: entry.id, disabled: isOffered });
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
+
+  function formatTime12(time: string): string {
+    const [h, m] = time.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
+  }
+
+  if (isOffered) {
+    // Offered state — non-draggable, shows awaiting confirmation badge
+    return (
+      <div
+        className="bg-amber-50 rounded-xl border border-amber-200 border-l-4 border-l-amber-400 p-3 mb-2 cursor-default"
+      >
+        <div className="flex items-start gap-2">
+          <div className="flex-shrink-0 mt-0.5">
+            {/* Pulsing yellow dot */}
+            <span className="block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse mt-1" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-gray-900 truncate">
+              {entry.clientName}
+            </p>
+            <span className="inline-block bg-amber-100 rounded-full px-2 py-0.5 text-xs text-amber-700 mt-1">
+              {serviceName}
+            </span>
+            {entry.offeredTime && (
+              <p className="text-xs text-amber-700 font-medium mt-1">
+                Offered: {formatTime12(entry.offeredTime)}
+              </p>
+            )}
+            <p className="text-xs text-amber-600 mt-1 font-medium">
+              Awaiting confirmation...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -88,6 +129,8 @@ export default function QueuePanel({
     return m;
   }, [services]);
 
+  const waitingCount = queue.filter(e => e.status !== 'offered').length;
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 h-full flex flex-col overflow-hidden">
       {/* Header */}
@@ -103,7 +146,7 @@ export default function QueuePanel({
           {totalWaiting > 0 && (
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
           )}
-          {totalWaiting} waiting
+          {waitingCount} waiting
         </span>
       </div>
 
@@ -114,7 +157,7 @@ export default function QueuePanel({
             key={entry.id}
             entry={entry}
             serviceName={serviceMap[entry.serviceId] ?? "Unknown"}
-            isNext={entry.position === 1}
+            isNext={entry.position === 1 && entry.status !== 'offered'}
           />
         ))}
 

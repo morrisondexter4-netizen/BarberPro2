@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import PageContainer from "@/components/ui/PageContainer";
 import ShopDetailsCard from "./ShopDetailsCard";
 import BarbersCard from "./BarbersCard";
@@ -20,6 +20,7 @@ import {
   loadServicesAsync,
   saveServices,
   loadShopSettings,
+  loadShopSettingsAsync,
   saveShopSettings,
 } from "@/lib/settings";
 
@@ -108,8 +109,8 @@ const NEW_SERVICE_TEMPLATE: Service = {
   price: 0,
 };
 
-function nextId(prefix: string): string {
-  return `${prefix}-${Date.now()}`;
+function nextId(_prefix: string): string {
+  return crypto.randomUUID();
 }
 
 export default function ShopSettingsPage() {
@@ -118,21 +119,51 @@ export default function ShopSettingsPage() {
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
 
+  // Prevent auto-save from firing on initial data load from Supabase
+  const skipBarberSave = useRef(true);
+  const skipServiceSave = useRef(true);
+
   useEffect(() => {
-    loadBarbersAsync().then((loaded) => setBarbers(loaded.map(libBarberToLocal)));
+    loadBarbersAsync().then((loaded) => {
+      skipBarberSave.current = true;
+      setBarbers(loaded.map(libBarberToLocal));
+    });
   }, []);
 
   useEffect(() => {
-    loadServicesAsync().then((loaded) => setServices(loaded));
+    loadServicesAsync().then((loaded) => {
+      skipServiceSave.current = true;
+      setServices(loaded);
+    });
   }, []);
 
   useEffect(() => {
+    if (skipBarberSave.current) { skipBarberSave.current = false; return; }
     if (barbers.length > 0) saveBarbers(barbers.map(localBarberToLib));
   }, [barbers]);
 
   useEffect(() => {
+    if (skipServiceSave.current) { skipServiceSave.current = false; return; }
     if (services.length > 0) saveServices(services);
   }, [services]);
+
+  useEffect(() => {
+    loadShopSettingsAsync().then((s) => {
+      setShopDetails({
+        shopName: s.shopName ?? "Classic Cuts",
+        address: s.address ?? "",
+        phone: s.phone ?? "",
+        hours: s.hours
+          ? (Object.fromEntries(
+              DAYS.map((day) => [
+                day,
+                s.hours[day] ?? { open: day !== "Sun", openTime: "09:00", closeTime: "18:00" },
+              ])
+            ) as ShopDetailsState["hours"])
+          : defaultHours(),
+      });
+    });
+  }, []);
 
   const [editingBarber, setEditingBarber] = useState<Barber | null>(null);
   const [editingService, setEditingService] = useState<Service | null>(null);

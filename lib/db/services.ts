@@ -38,6 +38,8 @@ export async function getServices(): Promise<Service[]> {
 export async function saveServices(services: Service[]): Promise<void> {
   if (services.length === 0) return
   const rows = services.map(serviceToRow)
-  const { error } = await supabase.from('services').upsert(rows, { onConflict: 'id' })
+  const { error } = await supabase
+    .from('services')
+    .upsert(rows, { onConflict: 'id' })
   if (error) throw error
 }

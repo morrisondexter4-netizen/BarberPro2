@@ -5,12 +5,13 @@ import {
   saveAppointments,
   saveQueue,
   loadAppointmentsAsync, loadQueueAsync,
-  loadBarbersAsync, saveBarbers,
-  loadServicesAsync, saveServices,
+  loadBarbersAsync,
+  loadServicesAsync,
   persistAppointment, persistUpdateAppointment,
   persistQueueEntry, persistDeleteQueueEntry,
 } from "./settings";
-import { isSupabaseConfigured } from "./supabase";
+import { supabase, isSupabaseConfigured } from "./supabase";
+import * as dbQueue from "./db/queue";
 
 type BarberProContextType = {
   appointments: Appointment[];
@@ -27,6 +28,7 @@ type BarberProContextType = {
   addAppointment: (apt: Appointment) => void;
   removeFromQueue: (id: string) => void;
   addToQueue: (entry: QueueEntry) => void;
+  offerQueueSlot: (id: string, offeredTime: string, offeredDate: string, offeredBarberId: string) => void;
 };
 
 const BarberProContext = createContext<BarberProContextType | null>(null);
@@ -52,6 +54,30 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       .finally(() => setHydrated(true));
   }, []);
 
+  // Realtime subscription — keep queue in sync when customers join/leave or offer status changes
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const channel = supabase
+      .channel("dashboard-queue")
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "queue_entries" }, () => {
+        loadQueueAsync().then(setQueue).catch(console.error);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Realtime subscription — pick up new appointments when customers confirm from status page
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const channel = supabase
+      .channel("dashboard-appointments")
+      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "appointments" }, () => {
+        loadAppointmentsAsync().then(setAppointments).catch(console.error);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // localStorage cache — kept as fallback. Only fires after hydration to avoid
   // overwriting stored data with the empty initial state.
   useEffect(() => {
@@ -61,14 +87,6 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (hydrated) saveQueue(queue);
   }, [queue, hydrated]);
-
-  useEffect(() => {
-    if (hydrated && barbers.length > 0) saveBarbers(barbers);
-  }, [barbers, hydrated]);
-
-  useEffect(() => {
-    if (hydrated && services.length > 0) saveServices(services);
-  }, [services, hydrated]);
 
   const updateAppointmentStatus = (id: string, status: Appointment["status"]) =>
     setAppointments(prev => {
@@ -125,6 +143,26 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       return [...prev, newEntry];
     });
 
+  const offerQueueSlot = (
+    id: string,
+    offeredTime: string,
+    offeredDate: string,
+    offeredBarberId: string
+  ) => {
+    // Update local state immediately so the queue card shows "Awaiting confirmation"
+    setQueue(prev =>
+      prev.map(e =>
+        e.id === id
+          ? { ...e, status: 'offered' as const, offeredTime, offeredDate, offeredBarberId }
+          : e
+      )
+    );
+    // Persist to Supabase — this triggers Realtime on the customer's status page
+    if (isSupabaseConfigured()) {
+      dbQueue.offerQueueSlot(id, offeredTime, offeredDate, offeredBarberId).catch(console.error);
+    }
+  };
+
   if (!hydrated) return null;
 
   return (
@@ -139,6 +177,7 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       addAppointment,
       removeFromQueue,
       addToQueue,
+      offerQueueSlot,
     }}>
       {children}
     </BarberProContext.Provider>

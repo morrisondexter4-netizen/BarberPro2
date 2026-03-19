@@ -41,10 +41,10 @@ export default function DragConfirmPopup({
         }`}
       >
         <h3 className="font-bold text-xl text-gray-900">
-          Confirm Appointment
+          Offer This Slot?
         </h3>
         <p className="text-sm text-gray-500 mt-1 mb-4">
-          Add this person to the schedule?
+          Send this time slot to the customer for confirmation.
         </p>
 
         {/* Info card */}
@@ -82,7 +82,7 @@ export default function DragConfirmPopup({
             onClick={onConfirm}
             className="flex-1 bg-black text-white hover:bg-gray-800 rounded-xl py-3 text-sm font-semibold transition-all"
           >
-            ✓ Confirm
+            Send Offer
           </button>
         </div>
       </div>

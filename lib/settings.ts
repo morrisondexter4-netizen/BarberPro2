@@ -66,8 +66,7 @@ export function saveBarbers(barbers: Barber[]): void {
 export async function loadBarbersAsync(): Promise<Barber[]> {
   if (isSupabaseConfigured()) {
     try {
-      const barbers = await dbBarbers.getBarbers();
-      if (barbers.length > 0) return barbers;
+      return await dbBarbers.getBarbers(); // trust Supabase even if empty
     } catch { /* fall through to localStorage */ }
   }
   return loadBarbers();
@@ -96,8 +95,7 @@ export function saveServices(services: Service[]): void {
 export async function loadServicesAsync(): Promise<Service[]> {
   if (isSupabaseConfigured()) {
     try {
-      const services = await dbServices.getServices();
-      if (services.length > 0) return services;
+      return await dbServices.getServices(); // trust Supabase even if empty
     } catch { /* fall through to localStorage */ }
   }
   return loadServices();
@@ -127,10 +125,12 @@ export function saveShopSettings(s: { shopName: string; address: string; phone: 
 
 export async function loadShopSettingsAsync(): Promise<{ shopName: string; address: string; phone: string; hours: Record<string, ShopHours> }> {
   if (isSupabaseConfigured()) {
-    const settings = await dbShopSettings.getShopSettings();
-    if (settings) {
-      return { shopName: settings.shopName, address: settings.address, phone: settings.phone, hours: settings.hours };
-    }
+    try {
+      const settings = await dbShopSettings.getShopSettings();
+      if (settings) {
+        return { shopName: settings.shopName, address: settings.address, phone: settings.phone, hours: settings.hours };
+      }
+    } catch { /* fall through to localStorage */ }
   }
   return loadShopSettings();
 }
@@ -155,8 +155,7 @@ export function saveAppointments(appointments: Appointment[]): void {
 export async function loadAppointmentsAsync(): Promise<Appointment[]> {
   if (isSupabaseConfigured()) {
     try {
-      const appts = await dbAppointments.getAppointments();
-      if (appts.length > 0) return appts;
+      return await dbAppointments.getAppointments();
     } catch { /* fall through to localStorage */ }
   }
   return loadAppointments();
@@ -249,10 +248,18 @@ export function upsertCustomer(name: string, phone: string, email: string): Cust
   if (existing) {
     const updated = { ...existing, name, email };
     saveCustomers(customers.map(c => c.phone === phone ? updated : c));
+    if (isSupabaseConfigured()) {
+      import('./supabase').then(({ supabase }) => {
+        supabase.from('customers').upsert(
+          { id: updated.id, name: updated.name, phone: updated.phone, email: updated.email, no_shows: updated.noShows, total_visits: updated.totalVisits, created_at: updated.createdAt },
+          { onConflict: 'id' }
+        ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
+      })
+    }
     return updated;
   }
   const newCustomer: Customer = {
-    id: `cust-${Date.now()}`,
+    id: crypto.randomUUID(),
     name,
     phone,
     email,
@@ -261,5 +268,13 @@ export function upsertCustomer(name: string, phone: string, email: string): Cust
     createdAt: new Date().toISOString(),
   };
   saveCustomers([...customers, newCustomer]);
+  if (isSupabaseConfigured()) {
+    import('./supabase').then(({ supabase }) => {
+      supabase.from('customers').upsert(
+        { id: newCustomer.id, name: newCustomer.name, phone: newCustomer.phone, email: newCustomer.email, no_shows: 0, total_visits: 0, created_at: newCustomer.createdAt },
+        { onConflict: 'id' }
+      ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
+    })
+  }
   return newCustomer;
 }
