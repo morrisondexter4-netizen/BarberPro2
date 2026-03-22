@@ -6,9 +6,6 @@ import { Barber, Appointment, Service } from "@/lib/types";
 import { BARBER_COLOR_MAP } from "@/lib/barber-colors";
 
 const HOUR_HEIGHT = 64;
-const START_HOUR = 8;
-const TOTAL_HOURS = 11;
-const TIMELINE_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
@@ -31,11 +28,13 @@ function DraggableAppointmentCard({
   service,
   colors,
   onClick,
+  startHour,
 }: {
   apt: Appointment;
   service: Service | undefined;
   colors: { hex: string; bg: string; border: string; light: string };
   onClick: () => void;
+  startHour: number;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: "reschedule-" + apt.id,
@@ -48,9 +47,9 @@ function DraggableAppointmentCard({
 
   const [sh, sm] = apt.startTime.split(":").map(Number);
   const [eh, em] = apt.endTime.split(":").map(Number);
-  const top = (sh - START_HOUR) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
+  const top = (sh - startHour) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
   const height = Math.max(
-    28,
+    52,
     ((eh * 60 + em - (sh * 60 + sm)) / 60) * HOUR_HEIGHT
   );
 
@@ -73,7 +72,7 @@ function DraggableAppointmentCard({
       <p className="text-xs font-semibold text-gray-900 truncate">
         {apt.clientName}
       </p>
-      {height >= 40 && (
+      {height >= 44 && (
         <p className="text-xs text-gray-500 truncate">{service?.name}</p>
       )}
     </div>
@@ -84,10 +83,12 @@ function DroppableCancelledCard({
   apt,
   service,
   onClick,
+  startHour,
 }: {
   apt: Appointment;
   service: Service | undefined;
   onClick: () => void;
+  startHour: number;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: "cancelled-slot-" + apt.id,
@@ -101,9 +102,9 @@ function DroppableCancelledCard({
 
   const [sh, sm] = apt.startTime.split(":").map(Number);
   const [eh, em] = apt.endTime.split(":").map(Number);
-  const top = (sh - START_HOUR) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
+  const top = (sh - startHour) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
   const height = Math.max(
-    28,
+    52,
     ((eh * 60 + em - (sh * 60 + sm)) / 60) * HOUR_HEIGHT
   );
 
@@ -131,7 +132,7 @@ function DroppableCancelledCard({
       >
         {apt.clientName}
       </p>
-      {height >= 40 && (
+      {height >= 44 && (
         <p className="text-xs text-gray-500 truncate">{service?.name}</p>
       )}
     </div>
@@ -143,11 +144,13 @@ function DroppableBarberColumn({
   isLastColumn,
   onRefMount,
   children,
+  timelineHeight,
 }: {
   barberId: string;
   isLastColumn: boolean;
   onRefMount: (barberId: string, el: HTMLDivElement | null) => void;
   children: React.ReactNode;
+  timelineHeight: number;
 }) {
   const { setNodeRef } = useDroppable({
     id: "schedule-timeline-" + barberId,
@@ -167,7 +170,7 @@ function DroppableBarberColumn({
       className={`flex-1 relative border-l border-gray-100 ${
         isLastColumn ? "" : "border-r border-gray-100"
       }`}
-      style={{ height: TIMELINE_HEIGHT }}
+      style={{ height: timelineHeight }}
     >
       {children}
     </div>
@@ -192,6 +195,8 @@ interface ScheduleGridProps {
     barberId: string;
     durationMinutes: number;
   } | null;
+  startHour: number;
+  endHour: number;
 }
 
 export default function ScheduleGrid({
@@ -203,7 +208,12 @@ export default function ScheduleGrid({
   isDragging,
   draggedServiceId,
   dropReject,
+  startHour,
+  endHour,
 }: ScheduleGridProps) {
+  const TOTAL_HOURS = endHour - startHour;
+  const TIMELINE_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
+
   const [dragOverTime, setDragOverTime] = useState<string | null>(null);
   const [dragOverBarberId, setDragOverBarberId] = useState<string | null>(null);
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -254,7 +264,7 @@ export default function ScheduleGrid({
         0,
         Math.min(TOTAL_HOURS * 60, totalMinutes)
       );
-      const hours = Math.floor(clampedMinutes / 60) + START_HOUR;
+      const hours = Math.floor(clampedMinutes / 60) + startHour;
       const mins = clampedMinutes % 60;
       const time = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 
@@ -265,12 +275,12 @@ export default function ScheduleGrid({
 
     window.addEventListener("pointermove", handlePointerMove);
     return () => window.removeEventListener("pointermove", handlePointerMove);
-  }, [isDragging, onDragTimeChange]);
+  }, [isDragging, onDragTimeChange, TIMELINE_HEIGHT, TOTAL_HOURS, startHour]);
 
   const highlightBar = useMemo(() => {
     if (dropReject) {
       const startMin = timeToMinutes(dropReject.time);
-      const top = ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+      const top = ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
       const height = (dropReject.durationMinutes / 60) * HOUR_HEIGHT;
       return {
         top,
@@ -282,7 +292,7 @@ export default function ScheduleGrid({
     }
     if (isDragging && dragOverTime && dragOverBarberId && draggedService) {
       const startMin = timeToMinutes(dragOverTime);
-      const top = ((startMin - START_HOUR * 60) / 60) * HOUR_HEIGHT;
+      const top = ((startMin - startHour * 60) / 60) * HOUR_HEIGHT;
       const height = (draggedService.durationMinutes / 60) * HOUR_HEIGHT;
       return {
         top,
@@ -293,7 +303,7 @@ export default function ScheduleGrid({
       };
     }
     return null;
-  }, [dropReject, isDragging, dragOverTime, dragOverBarberId, draggedService]);
+  }, [dropReject, isDragging, dragOverTime, dragOverBarberId, draggedService, startHour]);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -323,15 +333,15 @@ export default function ScheduleGrid({
           style={{ height: TIMELINE_HEIGHT }}
         >
           {Array.from({ length: TOTAL_HOURS }, (_, i) => {
-            const hour = i + START_HOUR;
-            const label = hour <= 12 ? `${hour} AM` : `${hour - 12} PM`;
+            const hour = i + startHour;
+            const label = hour < 12 ? `${hour} AM` : hour === 12 ? "12 PM" : `${hour - 12} PM`;
             return (
               <div
                 key={hour}
                 className="absolute right-2 text-xs text-gray-400"
                 style={{ top: i * HOUR_HEIGHT - 8 }}
               >
-                {label === "12 AM" ? "12 PM" : label}
+                {label}
               </div>
             );
           })}
@@ -345,12 +355,23 @@ export default function ScheduleGrid({
           const colors = BARBER_COLOR_MAP[barber.color];
           const isLast = idx === barbers.length - 1;
 
+          // Per-barber out-of-hours blocks
+          const barberStartMin = timeToMinutes(barber.startTime ?? `${startHour}:00`);
+          const barberEndMin = timeToMinutes(barber.endTime ?? `${endHour}:00`);
+          const gridStartMin = startHour * 60;
+          const gridEndMin = endHour * 60;
+
+          const beforeHeight = ((barberStartMin - gridStartMin) / 60) * HOUR_HEIGHT;
+          const afterTop = ((barberEndMin - gridStartMin) / 60) * HOUR_HEIGHT;
+          const afterHeight = ((gridEndMin - barberEndMin) / 60) * HOUR_HEIGHT;
+
           return (
             <DroppableBarberColumn
               key={barber.id}
               barberId={barber.id}
               isLastColumn={isLast}
               onRefMount={setColumnRef}
+              timelineHeight={TIMELINE_HEIGHT}
             >
               {/* Hour lines */}
               {Array.from({ length: TOTAL_HOURS }, (_, i) => (
@@ -370,6 +391,27 @@ export default function ScheduleGrid({
                   />
                 ))
               )}
+
+              {/* Before-hours block */}
+              {beforeHeight > 0 && (
+                <div
+                  className="absolute left-0 right-0 bg-gray-100 border-l-4 border-gray-300 flex items-center px-2 z-10"
+                  style={{ top: 0, height: beforeHeight }}
+                >
+                  <span className="text-xs text-gray-400">Closed</span>
+                </div>
+              )}
+
+              {/* After-hours block */}
+              {afterHeight > 0 && (
+                <div
+                  className="absolute left-0 right-0 bg-gray-100 border-l-4 border-gray-300 flex items-center px-2 z-10"
+                  style={{ top: afterTop, height: afterHeight }}
+                >
+                  <span className="text-xs text-gray-400">Closed</span>
+                </div>
+              )}
+
               {/* Lunch break */}
               {barber.lunchBreak &&
                 (() => {
@@ -380,7 +422,7 @@ export default function ScheduleGrid({
                     .split(":")
                     .map(Number);
                   const top =
-                    (sh - START_HOUR) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
+                    (sh - startHour) * HOUR_HEIGHT + (sm / 60) * HOUR_HEIGHT;
                   const height =
                     ((eh * 60 + em - (sh * 60 + sm)) / 60) * HOUR_HEIGHT;
                   return (
@@ -429,6 +471,7 @@ export default function ScheduleGrid({
                       apt={apt}
                       service={service}
                       onClick={() => onAppointmentClick(apt)}
+                      startHour={startHour}
                     />
                   );
                 }
@@ -439,6 +482,7 @@ export default function ScheduleGrid({
                     service={service}
                     colors={colors}
                     onClick={() => onAppointmentClick(apt)}
+                    startHour={startHour}
                   />
                 );
               })}
