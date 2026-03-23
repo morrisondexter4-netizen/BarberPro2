@@ -131,7 +131,8 @@ export default function BookAppointmentPage() {
   }, [selectedBarber, shopHours]);
 
   const availableSlots = useMemo(() => {
-    if (!selectedBarber || !selectedDate) return [];
+    if (!selectedBarber || !selectedDate || !selectedService) return [];
+    const duration = getServiceDuration(selectedService, selectedBarber);
     const dow = new Date(selectedDate + "T12:00:00").getDay();
     const shopDay = shopHours[DAY_KEYS[dow]];
     const shopOpenMin = shopDay?.open && shopDay.openTime ? timeToMinutes(shopDay.openTime) : null;
@@ -147,8 +148,8 @@ export default function BookAppointmentPage() {
     );
 
     const slots: string[] = [];
-    for (let t = start; t + 15 <= end; t += 15) {
-      const slotEnd = t + 15;
+    for (let t = start; t + duration <= end; t += 15) {
+      const slotEnd = t + duration;
       if (lunchStart !== null && lunchEnd !== null && t < lunchEnd && slotEnd > lunchStart) continue;
       const overlaps = dayApts.some((a) => {
         const aStart = timeToMinutes(a.startTime);
@@ -159,7 +160,7 @@ export default function BookAppointmentPage() {
       slots.push(minutesToTime(t));
     }
     return slots;
-  }, [selectedBarber, selectedDate, existingApts]);
+  }, [selectedBarber, selectedDate, selectedService, existingApts]);
 
   async function handleSubmit() {
     if (!selectedBarber || !selectedDate || !selectedTime || !selectedService || !name.trim() || !phone.trim()) return;
@@ -284,7 +285,7 @@ export default function BookAppointmentPage() {
               {barbers.map((b) => (
                 <button
                   key={b.id}
-                  onClick={() => { setSelectedBarber(b); setSelectedDate(null); setSelectedTime(null); goNext(); }}
+                  onClick={() => { setSelectedBarber(b); setSelectedDate(null); setSelectedService(null); setSelectedTime(null); goNext(); }}
                   className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all duration-150 text-left ${
                     selectedBarber?.id === b.id ? "border-white bg-gray-800" : "border-gray-800 bg-gray-900 hover:border-gray-600"
                   }`}
@@ -309,7 +310,7 @@ export default function BookAppointmentPage() {
                 {availableDates.map((d) => (
                   <button
                     key={d}
-                    onClick={() => { setSelectedDate(d); setSelectedTime(null); goNext(); }}
+                    onClick={() => { setSelectedDate(d); setSelectedService(null); setSelectedTime(null); goNext(); }}
                     className={`p-3 rounded-xl border text-sm font-medium transition-all duration-150 ${
                       selectedDate === d ? "border-white bg-gray-800 text-white" : "border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600"
                     }`}
@@ -322,8 +323,33 @@ export default function BookAppointmentPage() {
           </div>
         )}
 
-        {/* STEP 3 — Choose Time */}
+        {/* STEP 3 — Choose Service */}
         {step === 3 && (
+          <div>
+            <h2 className="text-lg font-semibold text-white mb-1">Choose a service</h2>
+            <p className="text-sm text-gray-400 mb-5">What are you coming in for?</p>
+            <div className="space-y-2">
+              {services.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => { setSelectedService(s); setSelectedTime(null); goNext(); }}
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-150 text-left ${
+                    selectedService?.id === s.id ? "border-white bg-gray-800" : "border-gray-800 bg-gray-900 hover:border-gray-600"
+                  }`}
+                >
+                  <div>
+                    <span className="text-white font-medium">{s.name}</span>
+                    <span className="text-gray-500 text-sm ml-2">{getServiceDuration(s, selectedBarber ?? undefined)} min</span>
+                  </div>
+                  <span className="text-white font-semibold">${s.price}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4 — Choose Time */}
+        {step === 4 && (
           <div>
             <h2 className="text-lg font-semibold text-white mb-1">Pick a time</h2>
             <p className="text-sm text-gray-400 mb-5">
@@ -346,31 +372,6 @@ export default function BookAppointmentPage() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* STEP 4 — Choose Service */}
-        {step === 4 && (
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-1">Choose a service</h2>
-            <p className="text-sm text-gray-400 mb-5">What are you coming in for?</p>
-            <div className="space-y-2">
-              {services.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => { setSelectedService(s); goNext(); }}
-                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-150 text-left ${
-                    selectedService?.id === s.id ? "border-white bg-gray-800" : "border-gray-800 bg-gray-900 hover:border-gray-600"
-                  }`}
-                >
-                  <div>
-                    <span className="text-white font-medium">{s.name}</span>
-                    <span className="text-gray-500 text-sm ml-2">{getServiceDuration(s, selectedBarber ?? undefined)} min</span>
-                  </div>
-                  <span className="text-white font-semibold">${s.price}</span>
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
