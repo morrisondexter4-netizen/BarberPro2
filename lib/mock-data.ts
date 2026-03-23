@@ -1,4 +1,5 @@
 import { Barber, Service, QueueEntry, Appointment } from "./types";
+import { localDateString } from "./date-utils";
 
 export const SERVICES: Service[] = [
   { id: "s1", name: "Haircut", durationMinutes: 30, price: 25 },
@@ -13,7 +14,7 @@ export const BARBERS: Barber[] = [
   { id: "b3", name: "Jaylen", color: "violet", workDays: [1, 3, 4, 5, 6], startTime: "09:00", endTime: "18:00", lunchBreak: { start: "12:30", end: "13:15" } },
 ];
 
-const today = new Date().toISOString().split("T")[0];
+const today = localDateString();
 
 export const INITIAL_QUEUE: QueueEntry[] = [
   { id: "q1", clientName: "Michael Thompson", clientPhone: "", clientEmail: "", serviceId: "s2", waitMinutes: 5,  barberId: "b1", position: 1, joinedAt: new Date().toISOString() },

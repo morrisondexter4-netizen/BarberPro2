@@ -6,12 +6,14 @@ import {
   loadBarbers,
   loadServices,
   loadShopSettings,
-  loadAppointments,
-  saveAppointments,
-  upsertCustomer,
+  loadAppointmentSlots,
   getServiceDuration,
 } from "@/lib/settings";
-import type { Barber, Service, Appointment } from "@/lib/types";
+import type { AppointmentSlot } from "@/lib/settings";
+import { localDateString } from "@/lib/settings";
+import type { Barber, Service } from "@/lib/types";
+
+const DIRECT_BOOKING_ENABLED = false;
 
 const BARBER_DOT: Record<string, string> = {
   blue: "bg-blue-500",
@@ -50,7 +52,7 @@ export default function BookAppointmentPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [shopName, setShopName] = useState("Classic Cuts");
   const [shopHours, setShopHours] = useState<Record<string, { open: boolean; openTime: string; closeTime: string }>>({});
-  const [existingApts, setExistingApts] = useState<Appointment[]>([]);
+  const [existingApts, setExistingApts] = useState<AppointmentSlot[]>([]);
 
   const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -62,13 +64,17 @@ export default function BookAppointmentPage() {
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
+    if (!DIRECT_BOOKING_ENABLED) {
+      router.replace("/book");
+      return;
+    }
     setBarbers(loadBarbers());
     setServices(loadServices());
-    setExistingApts(loadAppointments());
+    setExistingApts(loadAppointmentSlots());
     const s = loadShopSettings();
     if (s.shopName) setShopName(s.shopName);
     if (s.hours) setShopHours(s.hours);
-  }, []);
+  }, [router]);
 
   function goNext() {
     setDirection("forward");
@@ -91,7 +97,7 @@ export default function BookAppointmentPage() {
       if (!selectedBarber.workDays.includes(dow)) continue;
       const dayKey = dayNames[dow];
       if (shopHours[dayKey] && !shopHours[dayKey].open) continue;
-      dates.push(d.toISOString().split("T")[0]);
+      dates.push(localDateString(d));
     }
     return dates;
   }, [selectedBarber, shopHours]);
@@ -124,34 +130,18 @@ export default function BookAppointmentPage() {
   }, [selectedBarber, selectedDate, existingApts]);
 
   function handleSubmit() {
-    if (!selectedBarber || !selectedDate || !selectedTime || !selectedService) return;
-    const customer = upsertCustomer(name, phone, email);
-    const duration = getServiceDuration(selectedService, selectedBarber);
-    const endMin = timeToMinutes(selectedTime) + duration;
-    const newApt: Appointment = {
-      id: `apt-${Date.now()}`,
-      clientName: name,
-      clientPhone: phone,
-      clientEmail: email,
-      customerId: customer.id,
-      serviceId: selectedService.id,
-      barberId: selectedBarber.id,
-      startTime: selectedTime,
-      endTime: minutesToTime(endMin),
-      date: selectedDate,
-      status: "scheduled",
-      fromQueue: false,
-    };
-    const current = loadAppointments();
-    saveAppointments([...current, newApt]);
-    setSubmitted(true);
-    goNext();
+    // Direct booking is disabled — server-side route required.
+    // This function is unreachable while DIRECT_BOOKING_ENABLED = false
+    // because the page redirects on mount. Kept as a scaffold for later.
+    router.replace("/book");
   }
 
   const animClass =
     direction === "forward"
       ? "animate-[fadeSlideIn_0.25s_ease-out]"
       : "animate-[fadeSlideBack_0.25s_ease-out]";
+
+  if (!DIRECT_BOOKING_ENABLED) return null;
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8">

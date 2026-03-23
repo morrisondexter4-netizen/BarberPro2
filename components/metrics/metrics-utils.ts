@@ -1,4 +1,5 @@
 import { Appointment } from "@/lib/types";
+import { localDateString } from "@/lib/settings";
 
 export const SERVICE_PRICES: Record<string, number> = {
   s1: 30,
@@ -23,7 +24,7 @@ export function filterByTimePeriod(
   period: TimePeriod
 ): Appointment[] {
   const now = new Date();
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = localDateString(now);
 
   if (period === "day") {
     return appointments.filter((a) => a.date === todayStr);

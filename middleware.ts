@@ -15,16 +15,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Demo mode: skip auth when Supabase credentials are not configured
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.next()
-  }
-
-  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
-    return NextResponse.next()
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('error', 'config')
+    return NextResponse.redirect(loginUrl)
   }
 
   let response = NextResponse.next({ request: { headers: request.headers } })

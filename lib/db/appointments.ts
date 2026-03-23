@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { getSupabase } from '../supabase'
 import type { Appointment } from '../types'
 
 interface AppointmentRow {
@@ -51,7 +51,7 @@ function appointmentToRow(a: Appointment): AppointmentRow {
 }
 
 export async function getAppointments(): Promise<Appointment[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('appointments')
     .select('*')
     .order('date', { ascending: true })
@@ -60,20 +60,20 @@ export async function getAppointments(): Promise<Appointment[]> {
 }
 
 export async function saveAppointment(appt: Appointment): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('appointments')
     .insert(appointmentToRow(appt))
   if (error) throw error
 }
 
 export async function updateAppointment(appt: Appointment): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('appointments')
     .upsert(appointmentToRow(appt), { onConflict: 'id' })
   if (error) throw error
 }
 
 export async function deleteAppointment(id: string): Promise<void> {
-  const { error } = await supabase.from('appointments').delete().eq('id', id)
+  const { error } = await getSupabase().from('appointments').delete().eq('id', id)
   if (error) throw error
 }

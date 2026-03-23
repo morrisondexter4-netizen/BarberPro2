@@ -1,5 +1,5 @@
-import { supabase } from '../supabase'
-import type { QueueEntry, Appointment } from '../types'
+import { getSupabase } from '../supabase'
+import type { QueueEntry } from '../types'
 
 export interface QueueRow {
   id: string
@@ -57,7 +57,7 @@ function queueEntryToRow(e: QueueEntry): QueueRow {
 }
 
 export async function getQueue(): Promise<QueueEntry[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('queue_entries')
     .select('*')
     .order('position', { ascending: true })
@@ -66,20 +66,20 @@ export async function getQueue(): Promise<QueueEntry[]> {
 }
 
 export async function saveQueueEntry(entry: QueueEntry): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('queue_entries')
     .upsert(queueEntryToRow(entry), { onConflict: 'id' })
   if (error) throw error
 }
 
 export async function deleteQueueEntry(id: string): Promise<void> {
-  const { error } = await supabase.from('queue_entries').delete().eq('id', id)
+  const { error } = await getSupabase().from('queue_entries').delete().eq('id', id)
   if (error) throw error
 }
 
 export async function clearQueue(): Promise<void> {
   // Delete all rows — use a truthy filter that matches every row
-  const { error } = await supabase.from('queue_entries').delete().gte('position', 0)
+  const { error } = await getSupabase().from('queue_entries').delete().gte('position', 0)
   if (error) throw error
 }
 
@@ -91,7 +91,7 @@ export async function offerQueueSlot(
   offeredDate: string,
   offeredBarberId: string
 ): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('queue_entries')
     .update({
       status: 'offered',
@@ -103,44 +103,20 @@ export async function offerQueueSlot(
   if (error) throw error
 }
 
-export async function acceptQueueOffer(
-  entry: QueueEntry,
-  appointment: Appointment
-): Promise<void> {
-  // Insert appointment then delete queue entry
-  const aptRow = {
-    id: appointment.id,
-    barber_id: appointment.barberId || null,
-    customer_name: appointment.clientName,
-    customer_phone: appointment.clientPhone,
-    customer_email: appointment.clientEmail,
-    customer_id: appointment.customerId ?? null,
-    service_id: appointment.serviceId,
-    start_time: appointment.startTime,
-    end_time: appointment.endTime,
-    date: appointment.date,
-    status: appointment.status,
-    from_queue: appointment.fromQueue ?? true,
-  }
-
-  const { error: insertError } = await supabase
-    .from('appointments')
-    .insert(aptRow)
-  if (insertError) throw insertError
-
-  const { error: deleteError } = await supabase
-    .from('queue_entries')
-    .delete()
-    .eq('id', entry.id)
-  if (deleteError) {
-    // Rollback: remove the appointment we just inserted
-    await supabase.from('appointments').delete().eq('id', appointment.id)
-    throw deleteError
-  }
+/** Atomically accept an offered queue slot via database RPC.
+ *  The function verifies the entry exists with status='offered',
+ *  derives all appointment fields from the queue entry, and
+ *  deletes the queue entry — all in one transaction. */
+export async function acceptQueueOffer(queueEntryId: string): Promise<string> {
+  const { data, error } = await getSupabase().rpc('accept_queue_offer', {
+    p_queue_entry_id: queueEntryId,
+  })
+  if (error) throw error
+  return data as string
 }
 
 export async function declineQueueOffer(id: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('queue_entries')
     .update({
       status: 'waiting',

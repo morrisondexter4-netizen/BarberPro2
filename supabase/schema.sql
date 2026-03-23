@@ -76,7 +76,11 @@ create table if not exists queue_entries (
   service_id              text not null,
   wait_minutes            int not null default 0,
   position                int not null default 1,
-  joined_at               timestamptz not null default now()
+  joined_at               timestamptz not null default now(),
+  status                  text not null default 'waiting',
+  offered_time            text,
+  offered_date            text,
+  offered_barber_id       uuid references barbers(id) on delete set null
 );
 
 create index if not exists idx_queue_barber_id on queue_entries(barber_id);

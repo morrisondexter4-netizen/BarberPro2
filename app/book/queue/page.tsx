@@ -10,7 +10,7 @@ import {
   upsertCustomer,
   persistQueueEntry,
 } from "@/lib/settings";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import type { Service, QueueEntry } from "@/lib/types";
 
 const TOTAL_STEPS = 2;
@@ -52,7 +52,7 @@ export default function JoinQueuePage() {
       let position = loadQueue().length + 1;
       if (isSupabaseConfigured()) {
         try {
-          const { count } = await supabase
+          const { count } = await getSupabase()
             .from("queue_entries")
             .select("*", { count: "exact", head: true });
           position = (count ?? 0) + 1;

@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { getSupabase } from '../supabase'
 import type { ShopSettings, ShopHours } from '../types'
 
 interface ShopSettingsRow {
@@ -24,7 +24,7 @@ function rowToSettings(row: ShopSettingsRow): ShopSettings {
 }
 
 export async function getShopSettings(): Promise<ShopSettings | null> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('shop_settings')
     .select('*')
     .limit(1)
@@ -36,7 +36,7 @@ export async function getShopSettings(): Promise<ShopSettings | null> {
 
 export async function saveShopSettings(settings: ShopSettings): Promise<void> {
   // Fetch existing row id (if any) so we can upsert deterministically
-  const { data: existing } = await supabase
+  const { data: existing } = await getSupabase()
     .from('shop_settings')
     .select('id')
     .limit(1)
@@ -50,7 +50,7 @@ export async function saveShopSettings(settings: ShopSettings): Promise<void> {
     hours: settings.hours,
   }
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('shop_settings')
     .upsert(row, { onConflict: 'id' })
   if (error) throw error

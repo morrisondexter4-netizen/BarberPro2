@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { getSupabase } from '../supabase'
 import type { Barber } from '../types'
 
 // ── Row shape returned by Supabase ──────────────────────────────────────────
@@ -48,7 +48,7 @@ function barberToRow(b: Barber): Omit<BarberRow, 'id'> & { id: string } {
 }
 
 export async function getBarbers(): Promise<Barber[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('barbers')
     .select('*')
     .order('created_at', { ascending: true })
@@ -59,7 +59,7 @@ export async function getBarbers(): Promise<Barber[]> {
 export async function saveBarbers(barbers: Barber[]): Promise<void> {
   if (barbers.length === 0) return
   const rows = barbers.map(barberToRow)
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('barbers')
     .upsert(rows, { onConflict: 'id' })
   if (error) throw error

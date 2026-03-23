@@ -13,39 +13,62 @@ ALTER TABLE barbers
 -- ─────────────────────────────────────────────
 
 -- Drop ALL policies (old and new names) so this is safe to re-run
-DROP POLICY IF EXISTS anon_all_barbers        ON barbers;
-DROP POLICY IF EXISTS anon_all_services       ON services;
-DROP POLICY IF EXISTS anon_all_shop_settings  ON shop_settings;
-DROP POLICY IF EXISTS anon_all_appointments   ON appointments;
-DROP POLICY IF EXISTS anon_all_queue          ON queue_entries;
-DROP POLICY IF EXISTS anon_all_customers      ON customers;
-DROP POLICY IF EXISTS anon_all_visits         ON visits;
-DROP POLICY IF EXISTS auth_all_barbers        ON barbers;
-DROP POLICY IF EXISTS auth_all_services       ON services;
-DROP POLICY IF EXISTS auth_all_shop_settings  ON shop_settings;
-DROP POLICY IF EXISTS auth_all_appointments   ON appointments;
-DROP POLICY IF EXISTS auth_all_queue          ON queue_entries;
-DROP POLICY IF EXISTS auth_all_customers      ON customers;
-DROP POLICY IF EXISTS auth_all_visits         ON visits;
-DROP POLICY IF EXISTS anon_read_appointments  ON appointments;
-DROP POLICY IF EXISTS anon_insert_queue       ON queue_entries;
-DROP POLICY IF EXISTS anon_read_queue         ON queue_entries;
+DROP POLICY IF EXISTS anon_all_barbers              ON barbers;
+DROP POLICY IF EXISTS anon_all_services             ON services;
+DROP POLICY IF EXISTS anon_all_shop_settings        ON shop_settings;
+DROP POLICY IF EXISTS anon_all_appointments         ON appointments;
+DROP POLICY IF EXISTS anon_all_queue                ON queue_entries;
+DROP POLICY IF EXISTS anon_all_customers            ON customers;
+DROP POLICY IF EXISTS anon_all_visits               ON visits;
+DROP POLICY IF EXISTS auth_all_barbers              ON barbers;
+DROP POLICY IF EXISTS auth_all_services             ON services;
+DROP POLICY IF EXISTS auth_all_shop_settings        ON shop_settings;
+DROP POLICY IF EXISTS auth_all_appointments         ON appointments;
+DROP POLICY IF EXISTS auth_all_queue                ON queue_entries;
+DROP POLICY IF EXISTS auth_all_customers            ON customers;
+DROP POLICY IF EXISTS auth_all_visits               ON visits;
+DROP POLICY IF EXISTS anon_read_barbers             ON barbers;
+DROP POLICY IF EXISTS anon_read_services            ON services;
+DROP POLICY IF EXISTS anon_read_shop_settings       ON shop_settings;
+DROP POLICY IF EXISTS anon_read_appointments        ON appointments;
+DROP POLICY IF EXISTS anon_insert_appointments      ON appointments;
+DROP POLICY IF EXISTS anon_insert_queue_appointments ON appointments;
+DROP POLICY IF EXISTS anon_insert_queue             ON queue_entries;
+DROP POLICY IF EXISTS anon_read_queue               ON queue_entries;
+DROP POLICY IF EXISTS anon_select_queue             ON queue_entries;
+DROP POLICY IF EXISTS anon_update_queue             ON queue_entries;
+DROP POLICY IF EXISTS anon_delete_queue             ON queue_entries;
+DROP POLICY IF EXISTS anon_decline_queue_offer      ON queue_entries;
+DROP POLICY IF EXISTS anon_accept_delete_queue      ON queue_entries;
+DROP POLICY IF EXISTS anon_insert_customers         ON customers;
 
--- Staff-only tables: authenticated users only
+-- ── Staff-only tables: authenticated full access ────────────────────────────
 CREATE POLICY "auth_all_barbers"       ON barbers       FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_services"      ON services      FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_shop_settings" ON shop_settings FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_customers"     ON customers     FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "auth_all_visits"        ON visits        FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- Appointments: authenticated full access + anon read (for booking availability)
-CREATE POLICY "auth_all_appointments"  ON appointments FOR ALL    TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "anon_read_appointments" ON appointments FOR SELECT TO anon          USING (true);
+-- ── Anon read-only (booking wizard needs barbers, services, shop hours) ─────
+CREATE POLICY "anon_read_barbers"       ON barbers       FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_read_services"      ON services      FOR SELECT TO anon USING (true);
+CREATE POLICY "anon_read_shop_settings" ON shop_settings FOR SELECT TO anon USING (true);
 
--- Queue: authenticated full access + anon can join (insert) and view (select)
-CREATE POLICY "auth_all_queue"    ON queue_entries FOR ALL    TO authenticated USING (true) WITH CHECK (true);
-CREATE POLICY "anon_insert_queue" ON queue_entries FOR INSERT TO anon          WITH CHECK (true);
-CREATE POLICY "anon_read_queue"   ON queue_entries FOR SELECT TO anon          USING (true);
+-- ── Appointments ────────────────────────────────────────────────────────────
+CREATE POLICY "auth_all_appointments"        ON appointments FOR ALL    TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "anon_read_appointments"       ON appointments FOR SELECT TO anon          USING (true);
+CREATE POLICY "anon_insert_queue_appointments" ON appointments FOR INSERT TO anon
+  WITH CHECK (status = 'scheduled' AND from_queue = true);
+
+-- ── Queue entries ───────────────────────────────────────────────────────────
+CREATE POLICY "auth_all_queue"           ON queue_entries FOR ALL    TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "anon_insert_queue"        ON queue_entries FOR INSERT TO anon          WITH CHECK (true);
+CREATE POLICY "anon_read_queue"          ON queue_entries FOR SELECT TO anon          USING (true);
+CREATE POLICY "anon_decline_queue_offer" ON queue_entries FOR UPDATE TO anon
+  USING  (status = 'offered')
+  WITH CHECK (status = 'waiting');
+CREATE POLICY "anon_accept_delete_queue" ON queue_entries FOR DELETE TO anon
+  USING (status = 'offered');
 
 -- ─────────────────────────────────────────────
 -- 3. SEED — barbers + services

@@ -2,7 +2,7 @@
 
 import { useState, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { isSupabaseConfigured, getSupabase } from "@/lib/supabase";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,7 +20,12 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      if (!isSupabaseConfigured()) {
+        setError("Supabase is not configured.");
+        return;
+      }
+
+      const { error: signInError } = await getSupabase().auth.signInWithPassword({
         email,
         password,
       });

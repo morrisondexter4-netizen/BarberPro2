@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase";
 import {
   loadQueue,
   loadServicesAsync,
@@ -13,17 +13,13 @@ import type { QueueEntry, Service } from "@/lib/types";
 
 type PageState = "loading" | "waiting" | "offered" | "confirmed" | "called" | "not_found";
 
+type QueueSlim = { id: string; position: number; serviceId: string };
+
 function formatTime12(time: string): string {
   const [h, m] = time.split(":").map(Number);
   const period = h >= 12 ? "PM" : "AM";
   const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
-}
-
-function minutesToTime(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
 export default function QueueStatusPage({ params }: { params: { id: string } }) {
@@ -40,14 +36,12 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
   const [offeredDate, setOfferedDate] = useState<string>("");
   const [confirmedTime, setConfirmedTime] = useState<string>("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
 
   const wasInQueueRef = useRef(false);
 
-  function computeStatus(currentQueue: QueueEntry[], serviceList: Service[]) {
-    const sorted = [...currentQueue].sort((a, b) => a.position - b.position);
-    const found = sorted.find((e) => e.id === id);
-
-    if (!found) {
+  function computeStatus(myEntry: QueueEntry | null, positions: QueueSlim[], serviceList: Service[]) {
+    if (!myEntry) {
       if (wasInQueueRef.current) {
         setPageState("called");
       } else {
@@ -57,22 +51,21 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
     }
 
     wasInQueueRef.current = true;
-    setEntry(found);
+    setEntry(myEntry);
 
-    // Check for offered state
-    if (found.status === "offered" && found.offeredTime) {
-      setOfferedTime(found.offeredTime);
-      setOfferedDate(found.offeredDate ?? "");
+    if (myEntry.status === "offered" && myEntry.offeredTime) {
+      setOfferedTime(myEntry.offeredTime);
+      setOfferedDate(myEntry.offeredDate ?? "");
       setPageState("offered");
       return;
     }
 
-    const idx = sorted.indexOf(found);
-    const pos = idx + 1;
+    const sorted = [...positions].sort((a, b) => a.position - b.position);
+    const idx = sorted.findIndex((e) => e.id === id);
+    const pos = idx >= 0 ? idx + 1 : 1;
     setPosition(pos);
 
-    // Sum durations of all entries ahead of this one
-    const ahead = sorted.slice(0, idx);
+    const ahead = idx >= 0 ? sorted.slice(0, idx) : [];
     let waitTotal = 0;
     for (const e of ahead) {
       const svc = serviceList.find((s) => s.id === e.serviceId);
@@ -86,31 +79,45 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
     const serviceList = await loadServicesAsync();
     setServices(serviceList);
 
-    let currentQueue: QueueEntry[] = [];
+    let myEntry: QueueEntry | null = null;
+    let positions: QueueSlim[] = [];
+
     if (isSupabaseConfigured()) {
       try {
-        const { data, error } = await supabase
+        const { data: entryData } = await getSupabase()
           .from("queue_entries")
           .select("*")
-          .order("position", { ascending: true });
-        if (!error && data) {
-          currentQueue = data.map(rowToQueueEntry);
-          // If our entry isn't in Supabase yet (e.g. insert race), merge localStorage
-          if (!currentQueue.find((e) => e.id === id)) {
-            const local = loadQueue().filter((e) => e.id === id);
-            currentQueue = [...local, ...currentQueue];
-          }
+          .eq("id", id)
+          .maybeSingle();
+        if (entryData) {
+          myEntry = rowToQueueEntry(entryData);
         } else {
-          currentQueue = loadQueue();
+          // Race condition: entry may not be in Supabase yet
+          myEntry = loadQueue().find((e) => e.id === id) ?? null;
+        }
+
+        const { data: posData } = await getSupabase()
+          .from("queue_entries")
+          .select("id, position, service_id")
+          .order("position", { ascending: true });
+        if (posData) {
+          positions = posData.map((r: any) => ({ id: r.id, position: r.position, serviceId: r.service_id }));
+          if (myEntry && !positions.find((p) => p.id === id)) {
+            positions.push({ id: myEntry.id, position: myEntry.position, serviceId: myEntry.serviceId });
+          }
         }
       } catch {
-        currentQueue = loadQueue();
+        const q = loadQueue();
+        myEntry = q.find((e) => e.id === id) ?? null;
+        positions = q.map((e) => ({ id: e.id, position: e.position, serviceId: e.serviceId }));
       }
     } else {
-      currentQueue = loadQueue();
+      const q = loadQueue();
+      myEntry = q.find((e) => e.id === id) ?? null;
+      positions = q.map((e) => ({ id: e.id, position: e.position, serviceId: e.serviceId }));
     }
 
-    computeStatus(currentQueue, serviceList);
+    computeStatus(myEntry, positions, serviceList);
   }
 
   useEffect(() => {
@@ -123,9 +130,9 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
     const pollInterval = setInterval(fetchData, 10_000);
 
     // Supabase Realtime subscription
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let channel: ReturnType<ReturnType<typeof getSupabase>["channel"]> | null = null;
     if (isSupabaseConfigured()) {
-      channel = supabase.channel(`queue-status-${id}`).on(
+      channel = getSupabase().channel(`queue-status-${id}`).on(
         "postgres_changes" as any,
         { event: "*", schema: "public", table: "queue_entries" },
         () => {
@@ -137,59 +144,29 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
 
     return () => {
       clearInterval(pollInterval);
-      if (channel) supabase.removeChannel(channel);
+      if (channel) getSupabase().removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   async function handleAccept() {
-    if (!entry || !offeredTime || !offeredDate) return;
+    if (!entry) return;
     setActionLoading(true);
+    setAcceptError(null);
 
     try {
-      const serviceList = services.length > 0 ? services : await loadServicesAsync();
-      const svc = serviceList.find((s) => s.id === entry.serviceId);
-      const durationMinutes = svc?.durationMinutes ?? 30;
-
-      // Calculate end time
-      const [h, m] = offeredTime.split(":").map(Number);
-      const startMinutes = h * 60 + m;
-      const endTime = minutesToTime(startMinutes + durationMinutes);
-
-      const appointmentId = crypto.randomUUID();
-      const aptRow = {
-        id: appointmentId,
-        barber_id: entry.offeredBarberId ?? entry.barberId ?? null,
-        customer_name: entry.clientName,
-        customer_phone: entry.clientPhone,
-        customer_email: entry.clientEmail,
-        customer_id: entry.customerId ?? null,
-        service_id: entry.serviceId,
-        start_time: offeredTime,
-        end_time: endTime,
-        date: offeredDate,
-        status: "scheduled",
-        from_queue: true,
-      };
-
-      // Insert appointment (anon insert policy required — see migration 005)
-      const { error: insertError } = await supabase
-        .from("appointments")
-        .insert(aptRow);
-      if (insertError) throw insertError;
-
-      // Delete queue entry
-      const { error: deleteError } = await supabase
-        .from("queue_entries")
-        .delete()
-        .eq("id", id);
-      if (deleteError) throw deleteError;
+      const { error } = await getSupabase().rpc("accept_queue_offer", {
+        p_queue_entry_id: id,
+      });
+      if (error) throw error;
 
       setConfirmedTime(offeredTime);
       setPageState("confirmed");
-    } catch (err) {
-      console.error("Accept failed:", err);
-      alert("Something went wrong. Please try again.");
+      fetchData();
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      console.error("Accept RPC failed:", msg, err);
+      setAcceptError(msg);
     } finally {
       setActionLoading(false);
     }
@@ -198,7 +175,7 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
   async function handleDecline() {
     setActionLoading(true);
     try {
-      const { error } = await supabase
+      const { error } = await getSupabase()
         .from("queue_entries")
         .update({
           status: "waiting",
@@ -342,6 +319,10 @@ export default function QueueStatusPage({ params }: { params: { id: string } }) 
                 {actionLoading ? "..." : "✓ Accept"}
               </button>
             </div>
+
+            {acceptError && (
+              <p className="text-red-500 text-sm text-center mt-3">{acceptError}</p>
+            )}
           </div>
 
           {/* Live indicator */}

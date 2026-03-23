@@ -5,6 +5,8 @@ import { Barber, Service, ShopHours, Customer, Appointment, QueueEntry } from ".
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
+export { localDateString } from "./date-utils";
+
 /**
  * Returns the effective duration for a service, respecting any per-barber
  * override. Falls back to the global service duration if no override is set.
@@ -13,7 +15,7 @@ export function getServiceDuration(service: Service, barber?: Barber): number {
   return barber?.serviceDurations?.[service.id] ?? service.durationMinutes;
 }
 import { BARBERS, SERVICES, INITIAL_APPOINTMENTS, INITIAL_QUEUE } from "./mock-data";
-import { isSupabaseConfigured } from "./supabase";
+import { isSupabaseConfigured, getSupabase } from "./supabase";
 import * as dbBarbers from "./db/barbers";
 import * as dbServices from "./db/services";
 import * as dbAppointments from "./db/appointments";
@@ -161,6 +163,15 @@ export async function loadAppointmentsAsync(): Promise<Appointment[]> {
   return loadAppointments();
 }
 
+// PII-stripped slot data for public-facing availability checks
+export type AppointmentSlot = { barberId: string; date: string; startTime: string; endTime: string; status: string };
+
+export function loadAppointmentSlots(): AppointmentSlot[] {
+  return loadAppointments().map(({ barberId, date, startTime, endTime, status }) => ({
+    barberId, date, startTime, endTime, status,
+  }));
+}
+
 export async function persistAppointment(appt: Appointment): Promise<void> {
   if (isSupabaseConfigured()) {
     await dbAppointments.saveAppointment(appt);
@@ -241,6 +252,23 @@ export function saveCustomers(customers: Customer[]): void {
   localStorage.setItem(KEYS.customers, JSON.stringify(customers));
 }
 
+function splitName(full: string): { first: string; last: string } {
+  const parts = full.trim().split(/\s+/);
+  return { first: parts[0] || '', last: parts.slice(1).join(' ') || '' };
+}
+
+function customerToRow(c: Customer) {
+  const { first, last } = splitName(c.name);
+  return {
+    id: c.id,
+    first_name: first,
+    last_name: last,
+    phone: c.phone,
+    email: c.email,
+    visit_count: c.totalVisits,
+  };
+}
+
 // Find or create customer by phone number
 export function upsertCustomer(name: string, phone: string, email: string): Customer {
   const customers = loadCustomers();
@@ -249,12 +277,11 @@ export function upsertCustomer(name: string, phone: string, email: string): Cust
     const updated = { ...existing, name, email };
     saveCustomers(customers.map(c => c.phone === phone ? updated : c));
     if (isSupabaseConfigured()) {
-      import('./supabase').then(({ supabase }) => {
-        supabase.from('customers').upsert(
-          { id: updated.id, name: updated.name, phone: updated.phone, email: updated.email, no_shows: updated.noShows, total_visits: updated.totalVisits, created_at: updated.createdAt },
-          { onConflict: 'id' }
-        ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
-      })
+      getSupabase().from('customers').upsert(
+        customerToRow(updated),
+        { onConflict: 'id' }
+      ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
+       .catch(() => {});
     }
     return updated;
   }
@@ -269,12 +296,11 @@ export function upsertCustomer(name: string, phone: string, email: string): Cust
   };
   saveCustomers([...customers, newCustomer]);
   if (isSupabaseConfigured()) {
-    import('./supabase').then(({ supabase }) => {
-      supabase.from('customers').upsert(
-        { id: newCustomer.id, name: newCustomer.name, phone: newCustomer.phone, email: newCustomer.email, no_shows: 0, total_visits: 0, created_at: newCustomer.createdAt },
-        { onConflict: 'id' }
-      ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
-    })
+    getSupabase().from('customers').upsert(
+      customerToRow(newCustomer),
+      { onConflict: 'id' }
+    ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
+     .catch(() => {});
   }
   return newCustomer;
 }

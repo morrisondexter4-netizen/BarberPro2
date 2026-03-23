@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { getSupabase } from '../supabase'
 import type { Visit } from '../crm/types'
 
 interface VisitRow {
@@ -48,7 +48,7 @@ function visitToRow(v: Visit): VisitRow {
 }
 
 export async function getVisits(customerId?: string): Promise<Visit[]> {
-  let query = supabase
+  let query = getSupabase()
     .from('visits')
     .select('*')
     .order('date', { ascending: false })
@@ -63,7 +63,7 @@ export async function getVisits(customerId?: string): Promise<Visit[]> {
 }
 
 export async function saveVisit(visit: Visit): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('visits')
     .upsert(visitToRow(visit), { onConflict: 'id' })
   if (error) throw error

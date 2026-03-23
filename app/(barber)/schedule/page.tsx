@@ -14,7 +14,7 @@ import {
 
 import { Appointment, ShopHours } from "@/lib/types";
 import { useBarberPro } from "@/lib/barberpro-context";
-import { loadShopSettingsAsync } from "@/lib/settings";
+import { loadShopSettingsAsync, localDateString } from "@/lib/settings";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
 import ScheduleAppointmentPopup from "@/components/schedule/ScheduleAppointmentPopup";
 
@@ -84,7 +84,7 @@ export default function SchedulePage() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      return d.toISOString().split("T")[0];
+      return localDateString(d);
     });
   };
 
@@ -294,8 +294,7 @@ export default function SchedulePage() {
           {weekDates.map((date, i) => {
             const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
             const dayNum = new Date(date + "T12:00:00").getDate();
-            const isToday =
-              date === new Date().toISOString().split("T")[0];
+            const isToday = date === localDateString();
             const isSelected = i === selectedDayIndex;
             return (
               <button

@@ -14,6 +14,7 @@ import type { Barber, Appointment, Service } from "@/lib/types";
 import type { Customer as CrmCustomer } from "@/lib/crm/types";
 import { MOCK_CUSTOMERS } from "@/lib/crm/mock";
 import { useBarberPro } from "@/lib/barberpro-context";
+import { localDateString } from "@/lib/settings";
 import { calculateQueueWaitTimes, buildWaitTimeUpdateSms } from "@/lib/queue-utils";
 import BarberSwitcher from "@/components/dashboard/BarberSwitcher";
 import CalendarPanel from "@/components/dashboard/CalendarPanel";
@@ -153,7 +154,7 @@ function minutesToTime(minutes: number): string {
 }
 
 export default function DashboardPage() {
-  const today = new Date().toISOString().split("T")[0];
+  const today = localDateString();
 
   const {
     appointments,
@@ -300,11 +301,19 @@ export default function DashboardPage() {
       "box-shadow:0 20px 40px rgba(0,0,0,0.15)",
       "opacity:0.95",
     ].join(";");
-    clone.innerHTML = `
-      <p style="font-weight:600;font-size:14px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px">${entry.clientName}</p>
-      <span style="display:inline-block;background:#f3f4f6;border-radius:9999px;padding:2px 8px;font-size:12px;color:#374151">${service?.name ?? ""}</span>
-      <p style="font-size:12px;color:#9ca3af;margin:6px 0 0">Drag to schedule →</p>
-    `;
+    const nameEl = document.createElement("p");
+    nameEl.style.cssText = "font-weight:600;font-size:14px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px";
+    nameEl.textContent = entry.clientName;
+
+    const serviceEl = document.createElement("span");
+    serviceEl.style.cssText = "display:inline-block;background:#f3f4f6;border-radius:9999px;padding:2px 8px;font-size:12px;color:#374151";
+    serviceEl.textContent = service?.name ?? "";
+
+    const hintEl = document.createElement("p");
+    hintEl.style.cssText = "font-size:12px;color:#9ca3af;margin:6px 0 0";
+    hintEl.textContent = "Drag to schedule →";
+
+    clone.append(nameEl, serviceEl, hintEl);
     document.body.appendChild(clone);
     customDragCloneRef.current = clone;
 
@@ -384,7 +393,7 @@ export default function DashboardPage() {
           setTimeout(() => setDropReject(null), 600);
           return;
         }
-        const today = new Date().toISOString().split("T")[0];
+        const today = localDateString();
         const barberApts = appointmentsRef.current.filter(
           (a) =>
             a.barberId === barberId &&

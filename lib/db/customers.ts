@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'
+import { getSupabase } from '../supabase'
 import type { Customer } from '../crm/types'
 
 interface CustomerRow {
@@ -39,7 +39,7 @@ function customerToRow(c: Customer): CustomerRow {
 }
 
 export async function getCustomers(): Promise<Customer[]> {
-  const { data, error } = await supabase
+  const { data, error } = await getSupabase()
     .from('customers')
     .select('*')
     .order('created_at', { ascending: true })
@@ -48,7 +48,7 @@ export async function getCustomers(): Promise<Customer[]> {
 }
 
 export async function saveCustomer(customer: Customer): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from('customers')
     .upsert(customerToRow(customer), { onConflict: 'id' })
   if (error) throw error
@@ -68,11 +68,11 @@ export async function updateCustomer(
   if (updates.visitCount !== undefined) patch.visit_count = updates.visitCount
   if (updates.createdAt !== undefined) patch.created_at = updates.createdAt
 
-  const { error } = await supabase.from('customers').update(patch).eq('id', id)
+  const { error } = await getSupabase().from('customers').update(patch).eq('id', id)
   if (error) throw error
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
-  const { error } = await supabase.from('customers').delete().eq('id', id)
+  const { error } = await getSupabase().from('customers').delete().eq('id', id)
   if (error) throw error
 }

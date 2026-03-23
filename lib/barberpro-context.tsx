@@ -10,7 +10,7 @@ import {
   persistAppointment, persistUpdateAppointment,
   persistQueueEntry, persistDeleteQueueEntry,
 } from "./settings";
-import { supabase, isSupabaseConfigured } from "./supabase";
+import { getSupabase, isSupabaseConfigured } from "./supabase";
 import * as dbQueue from "./db/queue";
 
 type BarberProContextType = {
@@ -57,25 +57,25 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
   // Realtime subscription — keep queue in sync when customers join/leave or offer status changes
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
-    const channel = supabase
+    const channel = getSupabase()
       .channel("dashboard-queue")
       .on("postgres_changes" as any, { event: "*", schema: "public", table: "queue_entries" }, () => {
         loadQueueAsync().then(setQueue).catch(console.error);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { getSupabase().removeChannel(channel); };
   }, []);
 
   // Realtime subscription — pick up new appointments when customers confirm from status page
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
-    const channel = supabase
+    const channel = getSupabase()
       .channel("dashboard-appointments")
       .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "appointments" }, () => {
         loadAppointmentsAsync().then(setAppointments).catch(console.error);
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { getSupabase().removeChannel(channel); };
   }, []);
 
   // localStorage cache — kept as fallback. Only fires after hydration to avoid
