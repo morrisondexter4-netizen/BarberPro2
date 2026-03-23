@@ -10,6 +10,7 @@ type Props = {
   services: Service[];
   totalWaiting: number;
   onCardMouseDown: (e: React.MouseEvent, entryId: string) => void;
+  onRetractOffer?: (id: string) => void;
 };
 
 function QueueCard({
@@ -17,11 +18,13 @@ function QueueCard({
   serviceName,
   isNext,
   onMouseDown,
+  onRetract,
 }: {
   entry: QueueEntry;
   serviceName: string;
   isNext: boolean;
   onMouseDown: (e: React.MouseEvent, entryId: string) => void;
+  onRetract?: (id: string) => void;
 }) {
   const isOffered = entry.status === 'offered';
 
@@ -33,14 +36,12 @@ function QueueCard({
   }
 
   if (isOffered) {
-    // Offered state — non-draggable, shows awaiting confirmation badge
     return (
       <div
         className="bg-amber-50 rounded-xl border border-amber-200 border-l-4 border-l-amber-400 p-3 mb-2 cursor-default"
       >
         <div className="flex items-start gap-2">
           <div className="flex-shrink-0 mt-0.5">
-            {/* Pulsing yellow dot */}
             <span className="block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse mt-1" />
           </div>
           <div className="flex-1 min-w-0">
@@ -58,6 +59,14 @@ function QueueCard({
             <p className="text-xs text-amber-600 mt-1 font-medium">
               Awaiting confirmation...
             </p>
+            {onRetract && (
+              <button
+                onClick={() => onRetract(entry.id)}
+                className="mt-2 text-xs text-amber-700 hover:text-red-600 font-medium transition-colors"
+              >
+                Retract offer
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -117,6 +126,7 @@ export default function QueuePanel({
   services,
   totalWaiting,
   onCardMouseDown,
+  onRetractOffer,
 }: Props) {
   const serviceMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -156,6 +166,7 @@ export default function QueuePanel({
             serviceName={serviceMap[entry.serviceId] ?? "Unknown"}
             isNext={entry.position === 1 && entry.status !== 'offered'}
             onMouseDown={onCardMouseDown}
+            onRetract={onRetractOffer}
           />
         ))}
 

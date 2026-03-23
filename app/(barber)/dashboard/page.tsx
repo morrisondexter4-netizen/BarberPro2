@@ -167,6 +167,7 @@ export default function DashboardPage() {
     addAppointment,
     removeFromQueue,
     offerQueueSlot,
+    retractOffer,
   } = useBarberPro();
 
 
@@ -228,99 +229,9 @@ export default function DashboardPage() {
   useEffect(() => { barbersRef.current = barbers; }, [barbers]);
   useEffect(() => { servicesRef.current = services; }, [services]);
 
-  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0];
-  if (!selectedBarber) return null; // barbers still loading
-
-  // Include 'waiting' and 'offered' entries — offered entries show "Awaiting confirmation"
-  const barberQueue = queue
-    .filter((e) => !e.barberId || e.barberId === selectedBarberId || e.offeredBarberId === selectedBarberId)
-    .sort((a, b) => a.position - b.position);
-
-  const barberAppointments = (() => {
-    const base = appointments.filter(
-      (a) =>
-        a.barberId === selectedBarberId &&
-        a.date === today &&
-        a.status !== "cancelled",
-    );
-    if (
-      pendingAppointment &&
-      pendingAppointment.appointment.barberId === selectedBarberId
-    ) {
-      return [...base, pendingAppointment.appointment];
-    }
-    return base;
-  })();
-
-  const isRescheduleDragging =
-    activeDragId !== null && activeDragId.startsWith("reschedule-");
-  const isQueueDragging =
-    activeDragId !== null && !isRescheduleDragging;
-  const isTimelineDragging = isQueueDragging || isRescheduleDragging;
-  const draggedEntry = isQueueDragging
-    ? queue.find((q) => q.id === activeDragId)
-    : null;
-  const draggedServiceId = (() => {
-    if (isQueueDragging && draggedEntry) return draggedEntry.serviceId;
-    if (isRescheduleDragging && activeDragId) {
-      const aptId = activeDragId.replace("reschedule-", "");
-      const apt = appointments.find((a) => a.id === aptId);
-      return apt?.serviceId ?? null;
-    }
-    return null;
-  })();
-
   const handleDragTimeChange = useCallback((time: string | null) => {
     dragTimeRef.current = time;
   }, []);
-
-  function handleQueueMouseDown(e: React.MouseEvent, entryId: string) {
-    e.preventDefault();
-    const entry = queueRef.current.find((q) => q.id === entryId);
-    if (!entry) return;
-
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    customDragOffsetRef.current = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-
-    const service = servicesRef.current.find((s) => s.id === entry.serviceId);
-    const clone = document.createElement("div");
-    clone.style.cssText = [
-      "position:fixed",
-      `left:${e.clientX - customDragOffsetRef.current.x}px`,
-      `top:${e.clientY - customDragOffsetRef.current.y}px`,
-      `width:${rect.width}px`,
-      "pointer-events:none",
-      "z-index:9999",
-      "background:white",
-      "border:1px solid #e5e7eb",
-      "border-radius:12px",
-      "padding:12px",
-      "box-shadow:0 20px 40px rgba(0,0,0,0.15)",
-      "opacity:0.95",
-    ].join(";");
-    const nameEl = document.createElement("p");
-    nameEl.style.cssText = "font-weight:600;font-size:14px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px";
-    nameEl.textContent = entry.clientName;
-
-    const serviceEl = document.createElement("span");
-    serviceEl.style.cssText = "display:inline-block;background:#f3f4f6;border-radius:9999px;padding:2px 8px;font-size:12px;color:#374151";
-    serviceEl.textContent = service?.name ?? "";
-
-    const hintEl = document.createElement("p");
-    hintEl.style.cssText = "font-size:12px;color:#9ca3af;margin:6px 0 0";
-    hintEl.textContent = "Drag to schedule →";
-
-    clone.append(nameEl, serviceEl, hintEl);
-    document.body.appendChild(clone);
-    customDragCloneRef.current = clone;
-
-    setCustomQueueDragId(entryId);
-    setActiveDragId(entryId);
-    setDropReject(null);
-  }
 
   useEffect(() => {
     if (!customQueueDragId) return;
@@ -440,6 +351,96 @@ export default function DashboardPage() {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [customQueueDragId]);
+
+  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0];
+  if (!selectedBarber) return null; // barbers still loading
+
+  // Include 'waiting' and 'offered' entries — offered entries show "Awaiting confirmation"
+  const barberQueue = queue
+    .filter((e) => !e.barberId || e.barberId === selectedBarberId || e.offeredBarberId === selectedBarberId)
+    .sort((a, b) => a.position - b.position);
+
+  const barberAppointments = (() => {
+    const base = appointments.filter(
+      (a) =>
+        a.barberId === selectedBarberId &&
+        a.date === today &&
+        a.status !== "cancelled",
+    );
+    if (
+      pendingAppointment &&
+      pendingAppointment.appointment.barberId === selectedBarberId
+    ) {
+      return [...base, pendingAppointment.appointment];
+    }
+    return base;
+  })();
+
+  const isRescheduleDragging =
+    activeDragId !== null && activeDragId.startsWith("reschedule-");
+  const isQueueDragging =
+    activeDragId !== null && !isRescheduleDragging;
+  const isTimelineDragging = isQueueDragging || isRescheduleDragging;
+  const draggedEntry = isQueueDragging
+    ? queue.find((q) => q.id === activeDragId)
+    : null;
+  const draggedServiceId = (() => {
+    if (isQueueDragging && draggedEntry) return draggedEntry.serviceId;
+    if (isRescheduleDragging && activeDragId) {
+      const aptId = activeDragId.replace("reschedule-", "");
+      const apt = appointments.find((a) => a.id === aptId);
+      return apt?.serviceId ?? null;
+    }
+    return null;
+  })();
+
+  function handleQueueMouseDown(e: React.MouseEvent, entryId: string) {
+    e.preventDefault();
+    const entry = queueRef.current.find((q) => q.id === entryId);
+    if (!entry) return;
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    customDragOffsetRef.current = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+
+    const service = servicesRef.current.find((s) => s.id === entry.serviceId);
+    const clone = document.createElement("div");
+    clone.style.cssText = [
+      "position:fixed",
+      `left:${e.clientX - customDragOffsetRef.current.x}px`,
+      `top:${e.clientY - customDragOffsetRef.current.y}px`,
+      `width:${rect.width}px`,
+      "pointer-events:none",
+      "z-index:9999",
+      "background:white",
+      "border:1px solid #e5e7eb",
+      "border-radius:12px",
+      "padding:12px",
+      "box-shadow:0 20px 40px rgba(0,0,0,0.15)",
+      "opacity:0.95",
+    ].join(";");
+    const nameEl = document.createElement("p");
+    nameEl.style.cssText = "font-weight:600;font-size:14px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0 0 4px";
+    nameEl.textContent = entry.clientName;
+
+    const serviceEl = document.createElement("span");
+    serviceEl.style.cssText = "display:inline-block;background:#f3f4f6;border-radius:9999px;padding:2px 8px;font-size:12px;color:#374151";
+    serviceEl.textContent = service?.name ?? "";
+
+    const hintEl = document.createElement("p");
+    hintEl.style.cssText = "font-size:12px;color:#9ca3af;margin:6px 0 0";
+    hintEl.textContent = "Drag to schedule →";
+
+    clone.append(nameEl, serviceEl, hintEl);
+    document.body.appendChild(clone);
+    customDragCloneRef.current = clone;
+
+    setCustomQueueDragId(entryId);
+    setActiveDragId(entryId);
+    setDropReject(null);
+  }
 
   function handleDragStart(event: DragStartEvent) {
     setActiveDragId(event.active.id as string);
@@ -675,6 +676,7 @@ export default function DashboardPage() {
               services={services}
               totalWaiting={barberQueue.length}
               onCardMouseDown={handleQueueMouseDown}
+              onRetractOffer={retractOffer}
             />
           </div>
         </div>

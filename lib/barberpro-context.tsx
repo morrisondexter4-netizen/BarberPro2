@@ -29,6 +29,7 @@ type BarberProContextType = {
   removeFromQueue: (id: string) => void;
   addToQueue: (entry: QueueEntry) => void;
   offerQueueSlot: (id: string, offeredTime: string, offeredDate: string, offeredBarberId: string) => void;
+  retractOffer: (id: string) => void;
 };
 
 const BarberProContext = createContext<BarberProContextType | null>(null);
@@ -188,6 +189,19 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const retractOffer = (id: string) => {
+    setQueue(prev =>
+      prev.map(e =>
+        e.id === id
+          ? { ...e, status: 'waiting' as const, offeredTime: undefined, offeredDate: undefined, offeredBarberId: undefined }
+          : e
+      )
+    );
+    if (isSupabaseConfigured()) {
+      dbQueue.declineQueueOffer(id).catch(console.error);
+    }
+  };
+
   if (!hydrated) return null;
 
   return (
@@ -203,6 +217,7 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       removeFromQueue,
       addToQueue,
       offerQueueSlot,
+      retractOffer,
     }}>
       {children}
     </BarberProContext.Provider>

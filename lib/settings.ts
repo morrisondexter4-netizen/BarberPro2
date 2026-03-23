@@ -280,7 +280,7 @@ export function upsertCustomer(name: string, phone: string, email: string): Cust
       getSupabase().from('customers').upsert(
         customerToRow(updated),
         { onConflict: 'id' }
-      ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
+      ).then((result: { error: unknown }) => { if (result.error) console.error('customer upsert:', result.error) })
        .catch(() => {});
     }
     return updated;
@@ -299,7 +299,7 @@ export function upsertCustomer(name: string, phone: string, email: string): Cust
     getSupabase().from('customers').upsert(
       customerToRow(newCustomer),
       { onConflict: 'id' }
-    ).then(({ error }) => { if (error) console.error('customer upsert:', error) })
+    ).then((result: { error: unknown }) => { if (result.error) console.error('customer upsert:', result.error) })
      .catch(() => {});
   }
   return newCustomer;
