@@ -197,6 +197,7 @@ interface ScheduleGridProps {
   } | null;
   startHour: number;
   endHour: number;
+  nonWorkingBarberIds?: string[];
 }
 
 export default function ScheduleGrid({
@@ -210,6 +211,7 @@ export default function ScheduleGrid({
   dropReject,
   startHour,
   endHour,
+  nonWorkingBarberIds = [],
 }: ScheduleGridProps) {
   const TOTAL_HOURS = endHour - startHour;
   const TIMELINE_HEIGHT = TOTAL_HOURS * HOUR_HEIGHT;
@@ -458,6 +460,16 @@ export default function ScheduleGrid({
                       ? "Cannot place here"
                       : `Drop here — ${formatTime12(highlightBar.time)}`}
                   </span>
+                </div>
+              )}
+
+              {/* Not working today overlay */}
+              {nonWorkingBarberIds.includes(barber.id) && (
+                <div
+                  className="absolute inset-0 bg-gray-50/80 flex items-center justify-center z-20"
+                  style={{ height: TIMELINE_HEIGHT }}
+                >
+                  <span className="text-xs text-gray-400 font-medium">Not working today</span>
                 </div>
               )}
 

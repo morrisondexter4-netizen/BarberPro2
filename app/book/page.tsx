@@ -7,10 +7,14 @@ import { loadShopSettings } from "@/lib/settings";
 export default function BookingLandingPage() {
   const router = useRouter();
   const [shopName, setShopName] = useState("Classic Cuts");
+  const [shopAddress, setShopAddress] = useState("");
+  const [shopPhone, setShopPhone] = useState("");
 
   useEffect(() => {
     const s = loadShopSettings();
     if (s.shopName) setShopName(s.shopName);
+    if (s.address) setShopAddress(s.address);
+    if (s.phone) setShopPhone(s.phone);
   }, []);
 
   return (
@@ -25,6 +29,11 @@ export default function BookingLandingPage() {
           </svg>
         </div>
         <h1 className="text-3xl font-bold text-white tracking-tight">{shopName}</h1>
+        {(shopAddress || shopPhone) && (
+          <p className="text-gray-500 mt-1 text-sm">
+            {shopAddress}{shopAddress && shopPhone ? " · " : ""}{shopPhone}
+          </p>
+        )}
         <p className="text-gray-400 mt-2 text-base">How would you like to get seen today?</p>
       </div>
 

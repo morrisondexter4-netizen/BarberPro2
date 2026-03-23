@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -153,6 +153,20 @@ function minutesToTime(minutes: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
+const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getEffectiveBounds(
+  barberStartMin: number,
+  barberEndMin: number,
+  shopOpenMin: number | null,
+  shopCloseMin: number | null,
+): { effectiveStart: number; effectiveEnd: number } {
+  return {
+    effectiveStart: shopOpenMin !== null ? Math.max(barberStartMin, shopOpenMin) : barberStartMin,
+    effectiveEnd: shopCloseMin !== null ? Math.min(barberEndMin, shopCloseMin) : barberEndMin,
+  };
+}
+
 export default function DashboardPage() {
   const today = localDateString();
 
@@ -162,6 +176,7 @@ export default function DashboardPage() {
     setQueue,
     barbers,
     services,
+    shopHours,
     updateAppointmentStatus,
     moveAppointment,
     addAppointment,
@@ -169,6 +184,15 @@ export default function DashboardPage() {
     offerQueueSlot,
     retractOffer,
   } = useBarberPro();
+
+  const { todayShopHours, shopOpenMin, shopCloseMin } = useMemo(() => {
+    const todayShopHours = shopHours[DAY_KEYS[new Date().getDay()]] ?? null;
+    const shopOpenMin = todayShopHours?.open && todayShopHours.openTime
+      ? timeToMinutes(todayShopHours.openTime) : null;
+    const shopCloseMin = todayShopHours?.open && todayShopHours.closeTime
+      ? timeToMinutes(todayShopHours.closeTime) : null;
+    return { todayShopHours, shopOpenMin, shopCloseMin };
+  }, [shopHours]);
 
 
   const [smsNotice, setSmsNotice] = useState<string | null>(null);
@@ -299,7 +323,8 @@ export default function DashboardPage() {
         const targetBarber = barbersRef.current.find((b) => b.id === barberId);
         const barberStartMin = timeToMinutes(targetBarber?.startTime ?? "09:00");
         const barberEndMin = timeToMinutes(targetBarber?.endTime ?? "18:00");
-        if (newStartMin < barberStartMin || newEndMin > barberEndMin) {
+        const { effectiveStart: effectiveStartMin, effectiveEnd: effectiveEndMin } = getEffectiveBounds(barberStartMin, barberEndMin, shopOpenMin, shopCloseMin);
+        if (newStartMin < effectiveStartMin || newEndMin > effectiveEndMin) {
           setDropReject({ time: dropTime, durationMinutes: svc.durationMinutes });
           setTimeout(() => setDropReject(null), 600);
           return;
@@ -504,8 +529,9 @@ export default function DashboardPage() {
       const targetBarber = barbers.find((b) => b.id === barberId);
       const reschedBarberStartMin = timeToMinutes(targetBarber?.startTime ?? "09:00");
       const reschedBarberEndMin = timeToMinutes(targetBarber?.endTime ?? "18:00");
+      const { effectiveStart: reschedEffectiveStart, effectiveEnd: reschedEffectiveEnd } = getEffectiveBounds(reschedBarberStartMin, reschedBarberEndMin, shopOpenMin, shopCloseMin);
 
-      if (newStartMin < reschedBarberStartMin || newEndMin > reschedBarberEndMin) {
+      if (newStartMin < reschedEffectiveStart || newEndMin > reschedEffectiveEnd) {
         setDropReject({
           time: dropTime,
           durationMinutes: service.durationMinutes,
@@ -560,8 +586,9 @@ export default function DashboardPage() {
     const targetBarber = barbers.find((b) => b.id === barberId);
     const queueBarberStartMin = timeToMinutes(targetBarber?.startTime ?? "09:00");
     const queueBarberEndMin = timeToMinutes(targetBarber?.endTime ?? "18:00");
+    const { effectiveStart: queueEffectiveStart, effectiveEnd: queueEffectiveEnd } = getEffectiveBounds(queueBarberStartMin, queueBarberEndMin, shopOpenMin, shopCloseMin);
 
-    if (newStartMin < queueBarberStartMin || newEndMin > queueBarberEndMin) {
+    if (newStartMin < queueEffectiveStart || newEndMin > queueEffectiveEnd) {
       setDropReject({
         time: dropTime,
         durationMinutes: service.durationMinutes,
@@ -667,6 +694,7 @@ export default function DashboardPage() {
               draggedServiceId={draggedServiceId}
               onDragTimeChange={handleDragTimeChange}
               dropReject={dropReject}
+              shopHoursToday={todayShopHours}
             />
           </div>
           <div className="w-72 overflow-hidden">

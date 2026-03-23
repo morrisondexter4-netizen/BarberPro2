@@ -1,12 +1,14 @@
 "use client";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Appointment, QueueEntry, Barber, Service } from "./types";
+import { Appointment, QueueEntry, Barber, Service, ShopHours } from "./types";
 import {
   saveAppointments,
   saveQueue,
   loadAppointmentsAsync, loadQueueAsync,
   loadBarbersAsync,
   loadServicesAsync,
+  loadShopSettingsAsync,
+  SHOP_SETTINGS_UPDATED_EVENT,
   persistAppointment, persistUpdateAppointment,
   persistQueueEntry, persistDeleteQueueEntry,
 } from "./settings";
@@ -22,6 +24,7 @@ type BarberProContextType = {
   setBarbers: React.Dispatch<React.SetStateAction<Barber[]>>;
   services: Service[];
   setServices: React.Dispatch<React.SetStateAction<Service[]>>;
+  shopHours: Record<string, ShopHours>;
   updateAppointmentStatus: (id: string, status: Appointment["status"]) => void;
   moveAppointment: (id: string, newStartTime: string, newEndTime: string) => void;
   cancelAppointment: (id: string) => void;
@@ -39,20 +42,36 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<QueueEntry[]>([]);
   const [barbers, setBarbers] = useState<Barber[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [shopHours, setShopHours] = useState<Record<string, ShopHours>>({});
   const [hydrated, setHydrated] = useState(false);
 
   // Load from Supabase on startup; fall back to localStorage if Supabase is not configured.
   // localStorage save effects below act as a local cache after hydration.
   useEffect(() => {
-    Promise.all([loadAppointmentsAsync(), loadQueueAsync(), loadBarbersAsync(), loadServicesAsync()])
-      .then(([appts, q, b, s]) => {
+    Promise.all([loadAppointmentsAsync(), loadQueueAsync(), loadBarbersAsync(), loadServicesAsync(), loadShopSettingsAsync()])
+      .then(([appts, q, b, s, shopSettings]) => {
         setAppointments(appts);
         setQueue(q);
         setBarbers(b);
         setServices(s);
+        setShopHours(shopSettings.hours ?? {});
       })
       .catch(console.error)
       .finally(() => setHydrated(true));
+  }, []);
+
+  // Re-sync shop hours whenever the barber saves new settings
+  useEffect(() => {
+    const handler = () => {
+      loadShopSettingsAsync().then((s) => {
+        const next = s.hours ?? {};
+        setShopHours((prev) =>
+          JSON.stringify(next) === JSON.stringify(prev) ? prev : next
+        );
+      }).catch(console.error);
+    };
+    window.addEventListener(SHOP_SETTINGS_UPDATED_EVENT, handler);
+    return () => window.removeEventListener(SHOP_SETTINGS_UPDATED_EVENT, handler);
   }, []);
 
   // Helper: re-fetch both queue and appointments from Supabase in one shot.
@@ -210,6 +229,7 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       queue, setQueue,
       barbers, setBarbers,
       services, setServices,
+      shopHours,
       updateAppointmentStatus,
       moveAppointment,
       cancelAppointment,

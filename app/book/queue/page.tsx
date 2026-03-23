@@ -48,15 +48,22 @@ export default function JoinQueuePage() {
     if (!selectedService || !name.trim() || !phone.trim()) return;
     setIsSubmitting(true);
     try {
-      // Get accurate position from Supabase, fall back to localStorage count
+      // Next in line: local count only here so we never block on Supabase (slow/hung network = stuck UI).
       let position = loadQueue().length + 1;
       if (isSupabaseConfigured()) {
         try {
-          const { count } = await getSupabase()
-            .from("queue_entries")
-            .select("*", { count: "exact", head: true });
-          position = (count ?? 0) + 1;
-        } catch { /* use localStorage count */ }
+          const { count, error } = await Promise.race([
+            getSupabase()
+              .from("queue_entries")
+              .select("*", { count: "exact", head: true }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("queue count timeout")), 2500)
+            ),
+          ]);
+          if (!error) position = (count ?? 0) + 1;
+        } catch {
+          /* keep local position */
+        }
       }
 
       const customer = upsertCustomer(name, phone, email);
@@ -73,11 +80,17 @@ export default function JoinQueuePage() {
         joinedAt: new Date().toISOString(),
       };
       saveQueue([...loadQueue(), newEntry]);
+      const statusPath = `/book/status/${newEntry.id}`;
       if (isSupabaseConfigured()) {
-        await persistQueueEntry(newEntry);
+        persistQueueEntry(newEntry).catch((err) =>
+          console.error("Queue sync failed (you can still use your status page):", err)
+        );
       }
-      router.push(`/book/status/${newEntry.id}`);
-    } finally {
+      // Hard navigation: client router.push sometimes no-ops in edge cases; this always leaves the form.
+      window.location.assign(statusPath);
+    } catch (e) {
+      console.error(e);
+      alert("Could not join the queue. Please try again.");
       setIsSubmitting(false);
     }
   }

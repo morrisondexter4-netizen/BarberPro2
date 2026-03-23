@@ -91,7 +91,7 @@ export default function OverviewPage() {
   const role = useUserRole();
   const [selectedBarberId, setSelectedBarberId] = useState<string>("all");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("week");
-  const { appointments } = useBarberPro();
+  const { appointments, services } = useBarberPro();
 
   useEffect(() => {
     if (role === "barber") router.replace("/dashboard");
@@ -100,8 +100,8 @@ export default function OverviewPage() {
   const metrics = useMemo(() => {
     const byBarber = filterByBarber(appointments, selectedBarberId);
     const byTime = filterByTimePeriod(byBarber, timePeriod);
-    return calculateMetrics(byTime);
-  }, [appointments, selectedBarberId, timePeriod]);
+    return calculateMetrics(byTime, services);
+  }, [appointments, services, selectedBarberId, timePeriod]);
 
   const periodLabel =
     timePeriod === "day" ? "today" : timePeriod === "week" ? "this week" : "this month";

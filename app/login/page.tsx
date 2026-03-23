@@ -4,6 +4,10 @@ import { useState, FormEvent, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { isSupabaseConfigured, getSupabase } from "@/lib/supabase";
 
+const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+const DEMO_EMAIL = "aiden@barberpro.com";
+const DEMO_PASSWORD = "BarberPro1!";
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,6 +24,16 @@ function LoginForm() {
     setLoading(true);
 
     try {
+      if (DEMO_MODE) {
+        if (email === DEMO_EMAIL && password === DEMO_PASSWORD) {
+          document.cookie = "bp_demo=1; path=/; max-age=86400";
+          router.replace(redirectTo);
+        } else {
+          setError("Invalid credentials.");
+        }
+        return;
+      }
+
       if (!isSupabaseConfigured()) {
         setError("Supabase is not configured.");
         return;

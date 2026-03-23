@@ -102,11 +102,20 @@ export default function BookAppointmentPage() {
     return dates;
   }, [selectedBarber, shopHours]);
 
-  // 15-min slots between barber start and end, excluding lunch and existing appointments
+  // 15-min slots between barber start and end, capped to shop hours, excluding lunch and existing appointments
   const availableSlots = useMemo(() => {
     if (!selectedBarber || !selectedDate) return [];
-    const start = timeToMinutes(selectedBarber.startTime);
-    const end = timeToMinutes(selectedBarber.endTime);
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dow = new Date(selectedDate + "T12:00:00").getDay();
+    const shopDay = shopHours[dayNames[dow]];
+    const barberStart = timeToMinutes(selectedBarber.startTime);
+    const barberEnd = timeToMinutes(selectedBarber.endTime);
+    const start = shopDay?.open && shopDay.openTime
+      ? Math.max(barberStart, timeToMinutes(shopDay.openTime))
+      : barberStart;
+    const end = shopDay?.open && shopDay.closeTime
+      ? Math.min(barberEnd, timeToMinutes(shopDay.closeTime))
+      : barberEnd;
     const lunchStart = selectedBarber.lunchBreak ? timeToMinutes(selectedBarber.lunchBreak.start) : null;
     const lunchEnd = selectedBarber.lunchBreak ? timeToMinutes(selectedBarber.lunchBreak.end) : null;
 

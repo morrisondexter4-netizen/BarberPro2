@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Appointment, Barber, Service } from "@/lib/types";
+import { Appointment, Barber, Service, ShopHours } from "@/lib/types";
 import { BARBER_COLOR_MAP } from "@/lib/barber-colors";
 
 type Props = {
@@ -15,6 +15,7 @@ type Props = {
   draggedServiceId: string | null;
   onDragTimeChange: (time: string | null) => void;
   dropReject: { time: string; durationMinutes: number } | null;
+  shopHoursToday?: ShopHours | null;
 };
 
 const HOUR_HEIGHT = 80;
@@ -28,6 +29,11 @@ function formatHour(hour: number): string {
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h * 60 + m;
+}
+
+function parseEndHour(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return m > 0 ? h + 2 : h + 1;
 }
 
 function isLunchBlocked(
@@ -130,13 +136,23 @@ export default function CalendarPanel({
   draggedServiceId,
   onDragTimeChange,
   dropReject,
+  shopHoursToday,
 }: Props) {
-  // Derive grid bounds from barber's working hours
-  const startHour = parseInt((barber.startTime ?? "08:00").split(":")[0], 10);
-  const [endH, endM] = (barber.endTime ?? "19:00").split(":").map(Number);
-  const endHour = endM > 0 ? endH + 2 : endH + 1;
-  const totalGridHours = endHour - startHour;
-  const HOURS = Array.from({ length: totalGridHours }, (_, i) => i + startHour);
+  const { startHour, endHour, totalGridHours, HOURS, shopOpenHour, shopCloseHour } = useMemo(() => {
+    const barberStartHour = parseInt((barber.startTime ?? "08:00").split(":")[0], 10);
+    const barberEndHour = parseEndHour(barber.endTime ?? "19:00");
+    const shopOpenHour = shopHoursToday?.open && shopHoursToday.openTime
+      ? parseInt(shopHoursToday.openTime.split(":")[0], 10)
+      : barberStartHour;
+    const shopCloseHour = shopHoursToday?.open && shopHoursToday.closeTime
+      ? parseEndHour(shopHoursToday.closeTime)
+      : barberEndHour;
+    const startHour = Math.min(barberStartHour, shopOpenHour);
+    const endHour = Math.max(barberEndHour, shopCloseHour);
+    const totalGridHours = endHour - startHour;
+    const HOURS = Array.from({ length: totalGridHours }, (_, i) => i + startHour);
+    return { startHour, endHour, totalGridHours, HOURS, shopOpenHour, shopCloseHour };
+  }, [barber.startTime, barber.endTime, shopHoursToday]);
 
   const [dragOverTime, setDragOverTime] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -277,6 +293,29 @@ export default function CalendarPanel({
               ))}
             </div>
           ))}
+
+          {/* Before shop hours */}
+          {shopHoursToday?.open && shopOpenHour > startHour && (
+            <div
+              className="absolute left-14 right-2 bg-gray-50 border-l-4 border-gray-200 rounded flex items-center px-2 z-10"
+              style={{ top: 0, height: (shopOpenHour - startHour) * HOUR_HEIGHT }}
+            >
+              <span className="text-xs text-gray-400">Shop closed</span>
+            </div>
+          )}
+
+          {/* After shop hours */}
+          {shopHoursToday?.open && shopCloseHour < endHour && (
+            <div
+              className="absolute left-14 right-2 bg-gray-50 border-l-4 border-gray-200 rounded flex items-center px-2 z-10"
+              style={{
+                top: (shopCloseHour - startHour) * HOUR_HEIGHT,
+                height: (endHour - shopCloseHour) * HOUR_HEIGHT,
+              }}
+            >
+              <span className="text-xs text-gray-400">Shop closed</span>
+            </div>
+          )}
 
           {/* Lunch break */}
           {barber.lunchBreak &&

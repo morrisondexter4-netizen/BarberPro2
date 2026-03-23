@@ -1,12 +1,5 @@
-import { Appointment } from "@/lib/types";
+import { Appointment, Service } from "@/lib/types";
 import { localDateString } from "@/lib/settings";
-
-export const SERVICE_PRICES: Record<string, number> = {
-  s1: 30,
-  s2: 45,
-  s3: 20,
-  s4: 60,
-};
 
 export type TimePeriod = "day" | "week" | "month";
 
@@ -69,11 +62,14 @@ export type MetricData = {
   noShows: number;
 };
 
-export function calculateMetrics(appointments: Appointment[]): MetricData {
+export function calculateMetrics(appointments: Appointment[], services: Service[]): MetricData {
   const paid = appointments.filter((a) => a.status === "paid");
 
+  const priceMap: Record<string, number> = {};
+  for (const s of services) priceMap[s.id] = s.price;
+
   const revenue = paid.reduce(
-    (sum, a) => sum + (SERVICE_PRICES[a.serviceId] ?? 0),
+    (sum, a) => sum + (priceMap[a.serviceId] ?? 0),
     0
   );
 

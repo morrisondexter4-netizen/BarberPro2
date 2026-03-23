@@ -55,7 +55,6 @@ export default function BarbersCard({
       b.lunchEnabled &&
       timeToMinutes(b.lunchEnd) <= timeToMinutes(b.lunchStart)
   );
-  const canSave = !invalidLunch;
 
   return (
     <div className={cardClass}>
@@ -141,20 +140,7 @@ export default function BarbersCard({
           })}
         </ul>
         {invalidLunch && (
-          <p className="text-xs text-red-600 mt-2">Fix invalid lunch times to save.</p>
-        )}
-        {barbers.length > 0 && (
-          <div className="pt-2 flex justify-end">
-            <Button
-              variant="primary"
-              size="sm"
-              className="rounded-xl"
-              disabled={!canSave}
-              onClick={() => {}}
-            >
-              Save
-            </Button>
-          </div>
+          <p className="text-xs text-red-600 mt-2">Fix invalid lunch times before continuing.</p>
         )}
         {barbers.length === 0 && (
           <p className="text-sm text-gray-500 py-4">No barbers yet. Add one to get started.</p>

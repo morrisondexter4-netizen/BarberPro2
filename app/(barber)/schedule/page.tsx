@@ -12,9 +12,9 @@ import {
   pointerWithin,
 } from "@dnd-kit/core";
 
-import { Appointment, ShopHours } from "@/lib/types";
+import { Appointment } from "@/lib/types";
 import { useBarberPro } from "@/lib/barberpro-context";
-import { loadShopSettingsAsync, localDateString } from "@/lib/settings";
+import { localDateString } from "@/lib/settings";
 import ScheduleGrid from "@/components/schedule/ScheduleGrid";
 import ScheduleAppointmentPopup from "@/components/schedule/ScheduleAppointmentPopup";
 
@@ -35,11 +35,6 @@ export default function SchedulePage() {
     const day = new Date().getDay();
     return day === 0 ? 6 : day - 1;
   });
-  const [shopHoursMap, setShopHoursMap] = useState<Record<string, ShopHours>>({});
-
-  useEffect(() => {
-    loadShopSettingsAsync().then((s) => setShopHoursMap(s.hours));
-  }, []);
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -56,6 +51,7 @@ export default function SchedulePage() {
     appointments: allAppointments,
     barbers,
     services,
+    shopHours: shopHoursMap,
     updateAppointmentStatus,
     cancelAppointment,
     moveAppointment,
@@ -93,6 +89,11 @@ export default function SchedulePage() {
   const dayAppointments = allAppointments.filter(
     (a) => a.date === selectedDate
   );
+
+  const nonWorkingBarberIds = useMemo(() => {
+    const dow = new Date(selectedDate + "T12:00:00").getDay();
+    return barbers.filter((b) => !b.workDays.includes(dow)).map((b) => b.id);
+  }, [barbers, selectedDate]);
 
   const { startHour, endHour } = useMemo(() => {
     const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -333,6 +334,7 @@ export default function SchedulePage() {
           dropReject={dropReject}
           startHour={startHour}
           endHour={endHour}
+          nonWorkingBarberIds={nonWorkingBarberIds}
         />
 
         {selectedAppointment && (

@@ -115,9 +115,12 @@ export function loadShopSettings() {
   } catch { return { shopName: "Classic Cuts", address: "", phone: "", hours: defaultHours() }; }
 }
 
+export const SHOP_SETTINGS_UPDATED_EVENT = "barberpro:shop-settings-updated";
+
 export function saveShopSettings(s: { shopName: string; address: string; phone: string; hours: Record<string, ShopHours> }): void {
   if (!isBrowser()) return;
   localStorage.setItem(KEYS.settings, JSON.stringify(s));
+  window.dispatchEvent(new Event(SHOP_SETTINGS_UPDATED_EVENT));
   if (isSupabaseConfigured()) {
     // ShopSettings in db expects the full type including barbers/services arrays;
     // pass empty arrays since those are managed separately.

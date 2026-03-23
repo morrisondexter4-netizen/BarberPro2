@@ -15,6 +15,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Demo mode: bypass Supabase, use cookie session instead
+  if (process.env.NEXT_PUBLIC_DEMO_MODE === 'true') {
+    if (request.cookies.get('bp_demo')?.value === '1') {
+      return NextResponse.next()
+    }
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('redirectTo', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
