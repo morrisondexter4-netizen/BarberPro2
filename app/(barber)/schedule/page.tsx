@@ -55,6 +55,7 @@ export default function SchedulePage() {
     updateAppointmentStatus,
     cancelAppointment,
     moveAppointment,
+    deleteAppointment,
   } = useBarberPro();
 
   const sensors = useSensors(
@@ -62,12 +63,17 @@ export default function SchedulePage() {
     useSensor(KeyboardSensor),
   );
 
-  const handleStatusChange = (id: string, status: Appointment["status"]) => {
+  const handleStatusChange = (id: string, status: Appointment["status"], paymentMethod?: "cash" | "card") => {
     if (status === "cancelled") {
       cancelAppointment(id);
     } else {
-      updateAppointmentStatus(id, status);
+      updateAppointmentStatus(id, status, paymentMethod);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    deleteAppointment(id);
+    setSelectedAppointment(null);
   };
 
   const getWeekDates = (offset: number): string[] => {
@@ -340,13 +346,10 @@ export default function SchedulePage() {
         {selectedAppointment && (
           <ScheduleAppointmentPopup
             appointment={selectedAppointment}
-            barber={
-barbers.find((b) => b.id === selectedAppointment.barberId) ?? barbers[0]!
-            }
-            service={services.find(
-              (s) => s.id === selectedAppointment.serviceId
-            )}
+            barber={barbers.find((b) => b.id === selectedAppointment.barberId) ?? barbers[0]!}
+            service={services.find((s) => s.id === selectedAppointment.serviceId)}
             onStatusChange={handleStatusChange}
+            onDelete={handleDelete}
             onClose={() => setSelectedAppointment(null)}
           />
         )}

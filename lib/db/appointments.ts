@@ -14,6 +14,7 @@ interface AppointmentRow {
   date: string
   status: string
   from_queue: boolean
+  payment_method: string | null
 }
 
 function rowToAppointment(row: AppointmentRow): Appointment {
@@ -30,6 +31,7 @@ function rowToAppointment(row: AppointmentRow): Appointment {
     date: row.date,
     status: row.status as Appointment['status'],
     fromQueue: row.from_queue,
+    paymentMethod: (row.payment_method as 'cash' | 'card') ?? undefined,
   }
 }
 
@@ -47,6 +49,7 @@ function appointmentToRow(a: Appointment): AppointmentRow {
     date: a.date,
     status: a.status,
     from_queue: a.fromQueue ?? false,
+    payment_method: a.paymentMethod ?? null,
   }
 }
 

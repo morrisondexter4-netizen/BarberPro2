@@ -28,7 +28,6 @@ export function filterByTimePeriod(
     const sunday = new Date(monday);
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
-
     return appointments.filter((a) => {
       const d = new Date(a.date + "T00:00:00");
       return d >= monday && d <= sunday;
@@ -40,7 +39,6 @@ export function filterByTimePeriod(
   const month = now.getMonth();
   const firstDay = new Date(year, month, 1);
   const lastDay = new Date(year, month + 1, 0, 23, 59, 59, 999);
-
   return appointments.filter((a) => {
     const d = new Date(a.date + "T00:00:00");
     return d >= firstDay && d <= lastDay;
@@ -57,24 +55,31 @@ export function filterByBarber(
 
 export type MetricData = {
   revenue: number;
+  cashRevenue: number;
+  cardRevenue: number;
+  cashCount: number;
+  cardCount: number;
   totalAppointments: number;
   clientsServed: number;
   noShows: number;
 };
 
 export function calculateMetrics(appointments: Appointment[], services: Service[]): MetricData {
-  const paid = appointments.filter((a) => a.status === "paid");
-
   const priceMap: Record<string, number> = {};
   for (const s of services) priceMap[s.id] = s.price;
 
-  const revenue = paid.reduce(
-    (sum, a) => sum + (priceMap[a.serviceId] ?? 0),
-    0
-  );
+  const getPrice = (a: Appointment) => priceMap[a.serviceId] ?? 0;
+
+  const paid = appointments.filter((a) => a.status === "paid");
+  const cash = paid.filter((a) => a.paymentMethod === "cash");
+  const card = paid.filter((a) => a.paymentMethod === "card");
 
   return {
-    revenue,
+    revenue: paid.reduce((sum, a) => sum + getPrice(a), 0),
+    cashRevenue: cash.reduce((sum, a) => sum + getPrice(a), 0),
+    cardRevenue: card.reduce((sum, a) => sum + getPrice(a), 0),
+    cashCount: cash.length,
+    cardCount: card.length,
     totalAppointments: appointments.length,
     clientsServed: paid.length,
     noShows: appointments.filter((a) => a.status === "no-show").length,

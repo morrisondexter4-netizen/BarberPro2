@@ -9,7 +9,7 @@ import {
   loadServicesAsync,
   loadShopSettingsAsync,
   SHOP_SETTINGS_UPDATED_EVENT,
-  persistAppointment, persistUpdateAppointment,
+  persistAppointment, persistUpdateAppointment, persistDeleteAppointment,
   persistQueueEntry, persistDeleteQueueEntry,
 } from "./settings";
 import { getSupabase, isSupabaseConfigured } from "./supabase";
@@ -25,9 +25,10 @@ type BarberProContextType = {
   services: Service[];
   setServices: React.Dispatch<React.SetStateAction<Service[]>>;
   shopHours: Record<string, ShopHours>;
-  updateAppointmentStatus: (id: string, status: Appointment["status"]) => void;
+  updateAppointmentStatus: (id: string, status: Appointment["status"], paymentMethod?: "cash" | "card") => void;
   moveAppointment: (id: string, newStartTime: string, newEndTime: string) => void;
   cancelAppointment: (id: string) => void;
+  deleteAppointment: (id: string) => void;
   addAppointment: (apt: Appointment) => void;
   removeFromQueue: (id: string) => void;
   addToQueue: (entry: QueueEntry) => void;
@@ -133,9 +134,13 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
     if (hydrated) saveQueue(queue);
   }, [queue, hydrated]);
 
-  const updateAppointmentStatus = (id: string, status: Appointment["status"]) =>
+  const updateAppointmentStatus = (id: string, status: Appointment["status"], paymentMethod?: "cash" | "card") =>
     setAppointments(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, status } : a);
+      const next = prev.map(a =>
+        a.id === id
+          ? { ...a, status, ...(paymentMethod ? { paymentMethod } : {}) }
+          : a
+      );
       if (isSupabaseConfigured()) {
         const appt = next.find(a => a.id === id);
         if (appt) persistUpdateAppointment(appt).catch(console.error);
@@ -164,6 +169,13 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       }
       return next;
     });
+
+  const deleteAppointment = (id: string) => {
+    setAppointments(prev => prev.filter(a => a.id !== id));
+    if (isSupabaseConfigured()) {
+      persistDeleteAppointment(id).catch(console.error);
+    }
+  };
 
   const addAppointment = (apt: Appointment) => {
     setAppointments(prev => [...prev, apt]);
@@ -233,6 +245,7 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       updateAppointmentStatus,
       moveAppointment,
       cancelAppointment,
+      deleteAppointment,
       addAppointment,
       removeFromQueue,
       addToQueue,

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { loadShopSettings } from "@/lib/settings";
+import { loadShopSettingsAsync } from "@/lib/settings";
 
 export default function BookingLandingPage() {
   const router = useRouter();
@@ -11,10 +11,11 @@ export default function BookingLandingPage() {
   const [shopPhone, setShopPhone] = useState("");
 
   useEffect(() => {
-    const s = loadShopSettings();
-    if (s.shopName) setShopName(s.shopName);
-    if (s.address) setShopAddress(s.address);
-    if (s.phone) setShopPhone(s.phone);
+    loadShopSettingsAsync().then((s) => {
+      if (s.shopName) setShopName(s.shopName);
+      if (s.address) setShopAddress(s.address);
+      if (s.phone) setShopPhone(s.phone);
+    }).catch(console.error);
   }, []);
 
   return (
@@ -38,7 +39,7 @@ export default function BookingLandingPage() {
       </div>
 
       <div className="w-full max-w-lg grid grid-cols-1 gap-4">
-        {/* Join Queue Card — primary flow */}
+        {/* Join Queue Card */}
         <button
           onClick={() => router.push("/book/queue")}
           className="group bg-gray-900 border border-gray-800 rounded-2xl p-6 text-left hover:border-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
@@ -58,10 +59,12 @@ export default function BookingLandingPage() {
           </div>
         </button>
 
-        {/* Book Appointment Card — disabled until server-side booking is built */}
-        <div className="relative bg-gray-900 border border-gray-800 rounded-2xl p-6 text-left opacity-50 cursor-not-allowed">
-          <span className="absolute top-4 right-4 text-[10px] uppercase tracking-widest text-gray-500 font-semibold">Coming soon</span>
-          <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center mb-4">
+        {/* Book Appointment Card */}
+        <button
+          onClick={() => router.push("/book/appointment")}
+          className="group bg-gray-900 border border-gray-800 rounded-2xl p-6 text-left hover:border-gray-600 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/20"
+        >
+          <div className="w-11 h-11 rounded-xl bg-white/10 flex items-center justify-center mb-4 group-hover:bg-white/15 transition-colors">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
               <line x1="16" y1="2" x2="16" y2="6" />
@@ -71,11 +74,11 @@ export default function BookingLandingPage() {
             </svg>
           </div>
           <h2 className="text-lg font-semibold text-white mb-1">Book Appointment</h2>
-          <p className="text-sm text-gray-400 leading-relaxed">Choose your barber, pick a date & time, and lock in your spot.</p>
-          <div className="mt-5 w-full bg-white/10 text-gray-500 border border-gray-800 rounded-xl py-2.5 text-sm font-semibold text-center">
+          <p className="text-sm text-gray-400 leading-relaxed">Choose your barber, pick a date &amp; time, and lock in your spot.</p>
+          <div className="mt-5 w-full bg-white text-gray-950 rounded-xl py-2.5 text-sm font-semibold text-center group-hover:bg-gray-100 transition-colors">
             Book now
           </div>
-        </div>
+        </button>
       </div>
 
       <p className="text-gray-600 text-xs mt-8">Powered by BarberPro</p>

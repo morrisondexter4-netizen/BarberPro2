@@ -9,7 +9,8 @@ interface ScheduleAppointmentPopupProps {
   appointment: Appointment;
   barber: Barber;
   service: Service | undefined;
-  onStatusChange: (id: string, status: Appointment["status"]) => void;
+  onStatusChange: (id: string, status: Appointment["status"], paymentMethod?: "cash" | "card") => void;
+  onDelete: (id: string) => void;
   onClose: () => void;
 }
 
@@ -31,11 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "short",
-    day: "numeric",
-  });
+  return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
 }
 
 function formatTime(time24: string): string {
@@ -50,10 +47,13 @@ export default function ScheduleAppointmentPopup({
   barber,
   service,
   onStatusChange,
+  onDelete,
   onClose,
 }: ScheduleAppointmentPopupProps) {
   const [visible, setVisible] = useState(false);
   const [showCustomerProfile, setShowCustomerProfile] = useState(false);
+  const [showPaymentChoice, setShowPaymentChoice] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -64,8 +64,30 @@ export default function ScheduleAppointmentPopup({
     setTimeout(onClose, 200);
   };
 
-  const formattedDate = formatDate(appointment.date);
-  const timeRange = `${formatTime(appointment.startTime)} – ${formatTime(appointment.endTime)}`;
+  function handleStatus(status: Appointment["status"]) {
+    if (status === "paid") {
+      if (appointment.status === "paid") {
+        onStatusChange(appointment.id, "scheduled");
+        setShowPaymentChoice(false);
+      } else {
+        setShowPaymentChoice(true);
+      }
+      return;
+    }
+    setShowPaymentChoice(false);
+    if (appointment.status === status) {
+      onStatusChange(appointment.id, "scheduled");
+    } else {
+      onStatusChange(appointment.id, status);
+    }
+  }
+
+  function handlePaymentMethod(method: "cash" | "card") {
+    onStatusChange(appointment.id, "paid", method);
+    setShowPaymentChoice(false);
+  }
+
+  const isCancelled = appointment.status === "cancelled";
 
   return (
     <div
@@ -90,9 +112,7 @@ export default function ScheduleAppointmentPopup({
 
         {/* Barber */}
         <div className="flex items-center gap-2 mb-1">
-          <span
-            className={`w-2.5 h-2.5 rounded-full ${BARBER_COLOR_MAP[barber.color].bg}`}
-          />
+          <span className={`w-2.5 h-2.5 rounded-full ${BARBER_COLOR_MAP[barber.color].bg}`} />
           <span className="text-sm text-gray-500">{barber.name}</span>
         </div>
 
@@ -108,38 +128,128 @@ export default function ScheduleAppointmentPopup({
         {/* Service pill */}
         {service && (
           <span className="bg-gray-100 rounded-full px-3 py-1 text-sm font-medium text-gray-700">
-            {service.name} · {service.durationMinutes} min
+            {service.name} · {service.durationMinutes} min · ${service.price}
           </span>
         )}
 
         {/* Date + time */}
         <p className="text-sm text-gray-600 mt-3">
-          {formattedDate} · {timeRange}
+          {formatDate(appointment.date)} · {formatTime(appointment.startTime)} – {formatTime(appointment.endTime)}
         </p>
 
         {/* Status badge */}
-        <div className="mt-3">
-          <span
-            className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${
-              STATUS_STYLES[appointment.status] ?? "bg-gray-100 text-gray-600"
-            }`}
-          >
+        <div className="mt-3 flex items-center gap-2">
+          <span className={`rounded-full px-3 py-1 text-xs font-medium capitalize ${STATUS_STYLES[appointment.status] ?? "bg-gray-100 text-gray-600"}`}>
             {STATUS_LABELS[appointment.status] ?? appointment.status}
           </span>
+          {appointment.paymentMethod && appointment.status === "paid" && (
+            <span className="text-xs text-gray-400 capitalize">{appointment.paymentMethod}</span>
+          )}
         </div>
 
-        {/* Cancel button */}
-        {appointment.status !== "cancelled" && (
-          <button
-            onClick={() => {
-              onStatusChange(appointment.id, "cancelled");
-              handleClose();
-            }}
-            className="w-full bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl py-3 text-sm font-semibold transition-all mt-4"
-          >
-            Cancel Appointment
-          </button>
+        {/* Status action buttons (only when not cancelled) */}
+        {!isCancelled && (
+          <div className="mt-5 space-y-2">
+            <button
+              onClick={() => handleStatus("checked-in")}
+              className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                appointment.status === "checked-in"
+                  ? "bg-green-600 text-white ring-2 ring-green-300"
+                  : "bg-green-500 text-white hover:bg-green-600"
+              }`}
+            >
+              ✓ Check In
+            </button>
+
+            {showPaymentChoice ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-xs font-semibold text-emerald-700 mb-2 text-center">Payment method?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handlePaymentMethod("cash")}
+                    className="flex-1 rounded-lg py-2.5 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                  >
+                    💵 Cash
+                  </button>
+                  <button
+                    onClick={() => handlePaymentMethod("card")}
+                    className="flex-1 rounded-lg py-2.5 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                  >
+                    💳 Card
+                  </button>
+                </div>
+                <button
+                  onClick={() => setShowPaymentChoice(false)}
+                  className="w-full mt-2 text-xs text-emerald-600 hover:text-emerald-800 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => handleStatus("paid")}
+                className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                  appointment.status === "paid"
+                    ? "bg-emerald-700 text-white ring-2 ring-emerald-300"
+                    : "bg-emerald-600 text-white hover:bg-emerald-700"
+                }`}
+              >
+                $ Paid
+              </button>
+            )}
+
+            <button
+              onClick={() => handleStatus("no-show")}
+              className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-all ${
+                appointment.status === "no-show"
+                  ? "bg-red-600 text-white ring-2 ring-red-300"
+                  : "bg-red-500 text-white hover:bg-red-600"
+              }`}
+            >
+              ✗ No Show
+            </button>
+
+            <button
+              onClick={() => {
+                onStatusChange(appointment.id, "cancelled");
+                handleClose();
+              }}
+              className="w-full bg-white border border-red-200 text-red-500 hover:bg-red-50 rounded-xl py-2.5 text-sm font-semibold transition-all"
+            >
+              Cancel Appointment
+            </button>
+          </div>
         )}
+
+        {/* Delete button */}
+        <div className="mt-3">
+          {confirmDelete ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-3">
+              <p className="text-xs font-semibold text-red-700 mb-2 text-center">Delete this appointment permanently?</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onDelete(appointment.id)}
+                  className="flex-1 rounded-lg py-2 text-sm font-semibold bg-red-600 text-white hover:bg-red-700 transition-colors"
+                >
+                  Yes, delete
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 rounded-lg py-2 text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full rounded-xl py-2.5 text-sm font-medium text-red-500 border border-red-100 hover:bg-red-50 transition-colors"
+            >
+              Delete appointment
+            </button>
+          )}
+        </div>
       </div>
 
       {showCustomerProfile && (

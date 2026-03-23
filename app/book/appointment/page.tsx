@@ -3,17 +3,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  loadBarbers,
-  loadServices,
-  loadShopSettings,
-  loadAppointmentSlots,
+  loadBarbersAsync,
+  loadServicesAsync,
+  loadShopSettingsAsync,
+  loadAppointmentsAsync,
   getServiceDuration,
+  persistAppointment,
+  upsertCustomer,
 } from "@/lib/settings";
-import type { AppointmentSlot } from "@/lib/settings";
-import { localDateString } from "@/lib/settings";
-import type { Barber, Service } from "@/lib/types";
-
-const DIRECT_BOOKING_ENABLED = false;
+import type { Appointment, Barber, Service } from "@/lib/types";
 
 const BARBER_DOT: Record<string, string> = {
   blue: "bg-blue-500",
@@ -22,6 +20,8 @@ const BARBER_DOT: Record<string, string> = {
   amber: "bg-amber-500",
   rose: "bg-rose-500",
 };
+
+type AppointmentSlot = { barberId: string; date: string; startTime: string; endTime: string; status: string };
 
 function timeToMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -40,6 +40,12 @@ function formatDateNice(d: string) {
   const dt = new Date(d + "T12:00:00");
   return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
+function localDateString(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const TOTAL_STEPS = 5;
 
@@ -53,6 +59,7 @@ export default function BookAppointmentPage() {
   const [shopName, setShopName] = useState("Classic Cuts");
   const [shopHours, setShopHours] = useState<Record<string, { open: boolean; openTime: string; closeTime: string }>>({});
   const [existingApts, setExistingApts] = useState<AppointmentSlot[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [selectedBarber, setSelectedBarber] = useState<Barber | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -61,20 +68,34 @@ export default function BookAppointmentPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   useEffect(() => {
-    if (!DIRECT_BOOKING_ENABLED) {
-      router.replace("/book");
-      return;
+    async function load() {
+      try {
+        const [b, s, settings, apts] = await Promise.all([
+          loadBarbersAsync(),
+          loadServicesAsync(),
+          loadShopSettingsAsync(),
+          loadAppointmentsAsync(),
+        ]);
+        setBarbers(b);
+        setServices(s);
+        if (settings.shopName) setShopName(settings.shopName);
+        if (settings.hours) setShopHours(settings.hours);
+        setExistingApts(apts.map(({ barberId, date, startTime, endTime, status }) => ({
+          barberId, date, startTime, endTime, status,
+        })));
+      } catch (err) {
+        console.error("Failed to load booking data", err);
+      } finally {
+        setLoading(false);
+      }
     }
-    setBarbers(loadBarbers());
-    setServices(loadServices());
-    setExistingApts(loadAppointmentSlots());
-    const s = loadShopSettings();
-    if (s.shopName) setShopName(s.shopName);
-    if (s.hours) setShopHours(s.hours);
-  }, [router]);
+    load();
+  }, []);
 
   function goNext() {
     setDirection("forward");
@@ -138,11 +159,41 @@ export default function BookAppointmentPage() {
     return slots;
   }, [selectedBarber, selectedDate, existingApts]);
 
-  function handleSubmit() {
-    // Direct booking is disabled — server-side route required.
-    // This function is unreachable while DIRECT_BOOKING_ENABLED = false
-    // because the page redirects on mount. Kept as a scaffold for later.
-    router.replace("/book");
+  async function handleSubmit() {
+    if (!selectedBarber || !selectedDate || !selectedTime || !selectedService || !name.trim() || !phone.trim()) return;
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const startMin = timeToMinutes(selectedTime);
+      const duration = getServiceDuration(selectedService, selectedBarber);
+      const endTime = minutesToTime(startMin + duration);
+
+      const customer = upsertCustomer(name.trim(), phone.trim(), email.trim());
+
+      const appt: Appointment = {
+        id: crypto.randomUUID(),
+        clientName: name.trim(),
+        clientPhone: phone.trim(),
+        clientEmail: email.trim(),
+        customerId: customer.id,
+        serviceId: selectedService.id,
+        barberId: selectedBarber.id,
+        startTime: selectedTime,
+        endTime,
+        date: selectedDate,
+        status: "scheduled",
+        fromQueue: false,
+      };
+
+      await persistAppointment(appt);
+      setSubmitted(true);
+      goNext();
+    } catch (err) {
+      console.error(err);
+      setSubmitError("Failed to book appointment. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const animClass =
@@ -150,7 +201,13 @@ export default function BookAppointmentPage() {
       ? "animate-[fadeSlideIn_0.25s_ease-out]"
       : "animate-[fadeSlideBack_0.25s_ease-out]";
 
-  if (!DIRECT_BOOKING_ENABLED) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-8">
@@ -199,16 +256,9 @@ export default function BookAppointmentPage() {
               {barbers.map((b) => (
                 <button
                   key={b.id}
-                  onClick={() => {
-                    setSelectedBarber(b);
-                    setSelectedDate(null);
-                    setSelectedTime(null);
-                    goNext();
-                  }}
+                  onClick={() => { setSelectedBarber(b); setSelectedDate(null); setSelectedTime(null); goNext(); }}
                   className={`w-full flex items-center gap-3 p-4 rounded-2xl border transition-all duration-150 text-left ${
-                    selectedBarber?.id === b.id
-                      ? "border-white bg-gray-800"
-                      : "border-gray-800 bg-gray-900 hover:border-gray-600"
+                    selectedBarber?.id === b.id ? "border-white bg-gray-800" : "border-gray-800 bg-gray-900 hover:border-gray-600"
                   }`}
                 >
                   <span className={`w-3 h-3 rounded-full ${BARBER_DOT[b.color] ?? "bg-gray-500"}`} />
@@ -231,15 +281,9 @@ export default function BookAppointmentPage() {
                 {availableDates.map((d) => (
                   <button
                     key={d}
-                    onClick={() => {
-                      setSelectedDate(d);
-                      setSelectedTime(null);
-                      goNext();
-                    }}
+                    onClick={() => { setSelectedDate(d); setSelectedTime(null); goNext(); }}
                     className={`p-3 rounded-xl border text-sm font-medium transition-all duration-150 ${
-                      selectedDate === d
-                        ? "border-white bg-gray-800 text-white"
-                        : "border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600"
+                      selectedDate === d ? "border-white bg-gray-800 text-white" : "border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600"
                     }`}
                   >
                     {formatDateNice(d)}
@@ -264,14 +308,9 @@ export default function BookAppointmentPage() {
                 {availableSlots.map((t) => (
                   <button
                     key={t}
-                    onClick={() => {
-                      setSelectedTime(t);
-                      goNext();
-                    }}
+                    onClick={() => { setSelectedTime(t); goNext(); }}
                     className={`p-3 rounded-xl border text-sm font-medium transition-all duration-150 ${
-                      selectedTime === t
-                        ? "border-white bg-gray-800 text-white"
-                        : "border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600"
+                      selectedTime === t ? "border-white bg-gray-800 text-white" : "border-gray-800 bg-gray-900 text-gray-300 hover:border-gray-600"
                     }`}
                   >
                     {formatTime12(t)}
@@ -291,14 +330,9 @@ export default function BookAppointmentPage() {
               {services.map((s) => (
                 <button
                   key={s.id}
-                  onClick={() => {
-                    setSelectedService(s);
-                    goNext();
-                  }}
+                  onClick={() => { setSelectedService(s); goNext(); }}
                   className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-150 text-left ${
-                    selectedService?.id === s.id
-                      ? "border-white bg-gray-800"
-                      : "border-gray-800 bg-gray-900 hover:border-gray-600"
+                    selectedService?.id === s.id ? "border-white bg-gray-800" : "border-gray-800 bg-gray-900 hover:border-gray-600"
                   }`}
                 >
                   <div>
@@ -339,7 +373,7 @@ export default function BookAppointmentPage() {
                 />
               </div>
               <div>
-                <label className="text-sm text-gray-400 block mb-1">Email</label>
+                <label className="text-sm text-gray-400 block mb-1">Email (optional)</label>
                 <input
                   type="email"
                   value={email}
@@ -348,12 +382,15 @@ export default function BookAppointmentPage() {
                   className="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-gray-600 transition-colors"
                 />
               </div>
+              {submitError && (
+                <p className="text-sm text-red-400 text-center">{submitError}</p>
+              )}
               <button
                 onClick={handleSubmit}
-                disabled={!name.trim() || !phone.trim()}
+                disabled={!name.trim() || !phone.trim() || submitting}
                 className="w-full bg-white text-gray-950 rounded-xl py-3 text-sm font-semibold hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed mt-2"
               >
-                Confirm booking
+                {submitting ? "Booking..." : "Confirm booking"}
               </button>
             </div>
           </div>
@@ -368,7 +405,7 @@ export default function BookAppointmentPage() {
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-white mb-2">You&apos;re all set!</h2>
-            <p className="text-gray-400 mb-6">We&apos;ll send you a text confirmation.</p>
+            <p className="text-gray-400 mb-6">Your appointment has been booked.</p>
             <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 text-left space-y-2 mb-8">
               <div className="flex justify-between">
                 <span className="text-gray-500 text-sm">Barber</span>

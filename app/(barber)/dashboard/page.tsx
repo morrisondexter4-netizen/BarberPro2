@@ -183,6 +183,7 @@ export default function DashboardPage() {
     removeFromQueue,
     offerQueueSlot,
     retractOffer,
+    deleteAppointment,
   } = useBarberPro();
 
   const { todayShopHours, shopOpenMin, shopCloseMin } = useMemo(() => {
@@ -645,15 +646,21 @@ export default function DashboardPage() {
   function handleStatusChange(
     appointmentId: string,
     status: Appointment["status"],
+    paymentMethod?: "cash" | "card",
   ) {
     const apt = appointments.find((a) => a.id === appointmentId);
-    updateAppointmentStatus(appointmentId, status);
+    updateAppointmentStatus(appointmentId, status, paymentMethod);
     setActiveAppointment(null);
 
     if (!apt) return;
     if (status === "no-show" && apt.status !== "no-show") {
       incrementNoShowForCustomer(apt);
     }
+  }
+
+  function handleDeleteAppointment(appointmentId: string) {
+    deleteAppointment(appointmentId);
+    setActiveAppointment(null);
   }
 
   return (
@@ -705,6 +712,7 @@ export default function DashboardPage() {
               totalWaiting={barberQueue.length}
               onCardMouseDown={handleQueueMouseDown}
               onRetractOffer={retractOffer}
+              onRemove={removeFromQueue}
             />
           </div>
         </div>
@@ -714,10 +722,9 @@ export default function DashboardPage() {
           <AppointmentPopup
             appointment={activeAppointment}
             barber={selectedBarber}
-            service={services.find(
-              (s) => s.id === activeAppointment.serviceId,
-            )}
+            service={services.find((s) => s.id === activeAppointment.serviceId)}
             onStatusChange={handleStatusChange}
+            onDelete={handleDeleteAppointment}
             onClose={() => setActiveAppointment(null)}
           />
         )}

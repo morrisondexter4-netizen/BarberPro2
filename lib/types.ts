@@ -58,6 +58,7 @@ export type Appointment = {
   date: string;
   status: "scheduled" | "checked-in" | "no-show" | "paid" | "cancelled";
   fromQueue?: boolean;
+  paymentMethod?: "cash" | "card";
 };
 
 export type DashboardView = {
