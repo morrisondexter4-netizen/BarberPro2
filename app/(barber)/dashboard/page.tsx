@@ -386,7 +386,7 @@ export default function DashboardPage() {
     .filter((e) => !e.barberId || e.barberId === selectedBarberId || e.offeredBarberId === selectedBarberId)
     .sort((a, b) => a.position - b.position);
 
-  const barberAppointments = (() => {
+  const barberAppointments = useMemo(() => {
     const base = appointments.filter(
       (a) =>
         a.barberId === selectedBarberId &&
@@ -400,7 +400,7 @@ export default function DashboardPage() {
       return [...base, pendingAppointment.appointment];
     }
     return base;
-  })();
+  }, [appointments, selectedBarberId, today, pendingAppointment]);
 
   const activeAppointment = activeAppointmentId
     ? barberAppointments.find((a) => a.id === activeAppointmentId) ?? null

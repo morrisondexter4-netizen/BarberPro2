@@ -10,6 +10,7 @@ import {
   getServiceDuration,
   persistAppointment,
   upsertCustomer,
+  localDateString,
 } from "@/lib/settings";
 import type { Appointment, Barber, Service } from "@/lib/types";
 
@@ -40,11 +41,19 @@ function formatDateNice(d: string) {
   const dt = new Date(d + "T12:00:00");
   return dt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
-function localDateString(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+
+const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getEffectiveBounds(
+  barberStartMin: number,
+  barberEndMin: number,
+  shopOpenMin: number | null,
+  shopCloseMin: number | null,
+): { effectiveStart: number; effectiveEnd: number } {
+  return {
+    effectiveStart: shopOpenMin !== null ? Math.max(barberStartMin, shopOpenMin) : barberStartMin,
+    effectiveEnd: shopCloseMin !== null ? Math.min(barberEndMin, shopCloseMin) : barberEndMin,
+  };
 }
 
 const TOTAL_STEPS = 5;
@@ -108,7 +117,6 @@ export default function BookAppointmentPage() {
 
   const availableDates = useMemo(() => {
     if (!selectedBarber) return [];
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dates: string[] = [];
     const today = new Date();
     for (let i = 0; i < 30; i++) {
@@ -116,27 +124,21 @@ export default function BookAppointmentPage() {
       d.setDate(today.getDate() + i);
       const dow = d.getDay();
       if (!selectedBarber.workDays.includes(dow)) continue;
-      const dayKey = dayNames[dow];
-      if (shopHours[dayKey] && !shopHours[dayKey].open) continue;
+      if (shopHours[DAY_KEYS[dow]] && !shopHours[DAY_KEYS[dow]].open) continue;
       dates.push(localDateString(d));
     }
     return dates;
   }, [selectedBarber, shopHours]);
 
-  // 15-min slots between barber start and end, capped to shop hours, excluding lunch and existing appointments
   const availableSlots = useMemo(() => {
     if (!selectedBarber || !selectedDate) return [];
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dow = new Date(selectedDate + "T12:00:00").getDay();
-    const shopDay = shopHours[dayNames[dow]];
+    const shopDay = shopHours[DAY_KEYS[dow]];
+    const shopOpenMin = shopDay?.open && shopDay.openTime ? timeToMinutes(shopDay.openTime) : null;
+    const shopCloseMin = shopDay?.open && shopDay.closeTime ? timeToMinutes(shopDay.closeTime) : null;
     const barberStart = timeToMinutes(selectedBarber.startTime);
     const barberEnd = timeToMinutes(selectedBarber.endTime);
-    const start = shopDay?.open && shopDay.openTime
-      ? Math.max(barberStart, timeToMinutes(shopDay.openTime))
-      : barberStart;
-    const end = shopDay?.open && shopDay.closeTime
-      ? Math.min(barberEnd, timeToMinutes(shopDay.closeTime))
-      : barberEnd;
+    const { effectiveStart: start, effectiveEnd: end } = getEffectiveBounds(barberStart, barberEnd, shopOpenMin, shopCloseMin);
     const lunchStart = selectedBarber.lunchBreak ? timeToMinutes(selectedBarber.lunchBreak.start) : null;
     const lunchEnd = selectedBarber.lunchBreak ? timeToMinutes(selectedBarber.lunchBreak.end) : null;
 
@@ -169,13 +171,16 @@ export default function BookAppointmentPage() {
       const endMin = startMin + duration;
       const endTime = minutesToTime(endMin);
 
-      // Validate that the full appointment duration fits within shop hours and doesn't overlap lunch
-      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
       const dow = new Date(selectedDate + "T12:00:00").getDay();
-      const shopDay = shopHours[dayNames[dow]];
-      const barberEnd = timeToMinutes(selectedBarber.endTime);
+      const shopDay = shopHours[DAY_KEYS[dow]];
+      const shopOpenMin = shopDay?.open && shopDay.openTime ? timeToMinutes(shopDay.openTime) : null;
       const shopCloseMin = shopDay?.open && shopDay.closeTime ? timeToMinutes(shopDay.closeTime) : null;
-      const effectiveEnd = shopCloseMin !== null ? Math.min(barberEnd, shopCloseMin) : barberEnd;
+      const { effectiveEnd } = getEffectiveBounds(
+        timeToMinutes(selectedBarber.startTime),
+        timeToMinutes(selectedBarber.endTime),
+        shopOpenMin,
+        shopCloseMin,
+      );
       if (endMin > effectiveEnd) {
         setSubmitError("This service won't fit before closing time. Please choose an earlier slot.");
         setSubmitting(false);

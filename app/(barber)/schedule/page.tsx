@@ -29,6 +29,20 @@ function minutesToTime(minutes: number): string {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
+const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getEffectiveBounds(
+  barberStartMin: number,
+  barberEndMin: number,
+  shopOpenMin: number | null,
+  shopCloseMin: number | null,
+): { effectiveStart: number; effectiveEnd: number } {
+  return {
+    effectiveStart: shopOpenMin !== null ? Math.max(barberStartMin, shopOpenMin) : barberStartMin,
+    effectiveEnd: shopCloseMin !== null ? Math.min(barberEndMin, shopCloseMin) : barberEndMin,
+  };
+}
+
 export default function SchedulePage() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
@@ -80,24 +94,23 @@ export default function SchedulePage() {
     setSelectedAppointmentId(null);
   };
 
-  const getWeekDates = (offset: number): string[] => {
+  const weekDates = useMemo(() => {
     const now = new Date();
     const dayOfWeek = now.getDay();
     const monday = new Date(now);
-    monday.setDate(
-      now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + offset * 7
-    );
+    monday.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1) + weekOffset * 7);
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
       return localDateString(d);
     });
-  };
+  }, [weekOffset]);
 
-  const weekDates = getWeekDates(weekOffset);
   const selectedDate = weekDates[selectedDayIndex];
-  const dayAppointments = allAppointments.filter(
-    (a) => a.date === selectedDate
+
+  const dayAppointments = useMemo(
+    () => allAppointments.filter((a) => a.date === selectedDate),
+    [allAppointments, selectedDate]
   );
 
   const nonWorkingBarberIds = useMemo(() => {
@@ -106,7 +119,6 @@ export default function SchedulePage() {
   }, [barbers, selectedDate]);
 
   const { startHour, endHour } = useMemo(() => {
-    const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const dayIndex = new Date(selectedDate + "T12:00:00").getDay();
     const dayKey = DAY_KEYS[dayIndex];
     const hours = shopHoursMap[dayKey];
@@ -195,13 +207,10 @@ export default function SchedulePage() {
       ? timeToMinutes(targetBarber.endTime ?? `${endHour}:00`)
       : endHour * 60;
 
-    const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    const dayKey = DAY_KEYS[new Date(selectedDate + "T12:00:00").getDay()];
-    const shopDay = shopHoursMap[dayKey];
+    const shopDay = shopHoursMap[DAY_KEYS[new Date(selectedDate + "T12:00:00").getDay()]];
     const shopOpenMin = shopDay?.open && shopDay.openTime ? timeToMinutes(shopDay.openTime) : null;
     const shopCloseMin = shopDay?.open && shopDay.closeTime ? timeToMinutes(shopDay.closeTime) : null;
-    const effectiveStart = shopOpenMin !== null ? Math.max(barberStartMin, shopOpenMin) : barberStartMin;
-    const effectiveEnd = shopCloseMin !== null ? Math.min(barberEndMin, shopCloseMin) : barberEndMin;
+    const { effectiveStart, effectiveEnd } = getEffectiveBounds(barberStartMin, barberEndMin, shopOpenMin, shopCloseMin);
 
     if (newStartMin < effectiveStart || newEndMin > effectiveEnd) {
       setDropReject({
