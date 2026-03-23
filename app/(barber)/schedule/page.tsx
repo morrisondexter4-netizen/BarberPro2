@@ -195,7 +195,15 @@ export default function SchedulePage() {
       ? timeToMinutes(targetBarber.endTime ?? `${endHour}:00`)
       : endHour * 60;
 
-    if (newStartMin < barberStartMin || newEndMin > barberEndMin) {
+    const DAY_KEYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const dayKey = DAY_KEYS[new Date(selectedDate + "T12:00:00").getDay()];
+    const shopDay = shopHoursMap[dayKey];
+    const shopOpenMin = shopDay?.open && shopDay.openTime ? timeToMinutes(shopDay.openTime) : null;
+    const shopCloseMin = shopDay?.open && shopDay.closeTime ? timeToMinutes(shopDay.closeTime) : null;
+    const effectiveStart = shopOpenMin !== null ? Math.max(barberStartMin, shopOpenMin) : barberStartMin;
+    const effectiveEnd = shopCloseMin !== null ? Math.min(barberEndMin, shopCloseMin) : barberEndMin;
+
+    if (newStartMin < effectiveStart || newEndMin > effectiveEnd) {
       setDropReject({
         time: dropTime,
         barberId: targetBarberId,

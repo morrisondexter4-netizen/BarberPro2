@@ -166,7 +166,30 @@ export default function BookAppointmentPage() {
     try {
       const startMin = timeToMinutes(selectedTime);
       const duration = getServiceDuration(selectedService, selectedBarber);
-      const endTime = minutesToTime(startMin + duration);
+      const endMin = startMin + duration;
+      const endTime = minutesToTime(endMin);
+
+      // Validate that the full appointment duration fits within shop hours and doesn't overlap lunch
+      const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const dow = new Date(selectedDate + "T12:00:00").getDay();
+      const shopDay = shopHours[dayNames[dow]];
+      const barberEnd = timeToMinutes(selectedBarber.endTime);
+      const shopCloseMin = shopDay?.open && shopDay.closeTime ? timeToMinutes(shopDay.closeTime) : null;
+      const effectiveEnd = shopCloseMin !== null ? Math.min(barberEnd, shopCloseMin) : barberEnd;
+      if (endMin > effectiveEnd) {
+        setSubmitError("This service won't fit before closing time. Please choose an earlier slot.");
+        setSubmitting(false);
+        return;
+      }
+      if (selectedBarber.lunchBreak) {
+        const lStart = timeToMinutes(selectedBarber.lunchBreak.start);
+        const lEnd = timeToMinutes(selectedBarber.lunchBreak.end);
+        if (startMin < lEnd && endMin > lStart) {
+          setSubmitError("This time overlaps with the barber's lunch break. Please choose a different slot.");
+          setSubmitting(false);
+          return;
+        }
+      }
 
       const customer = upsertCustomer(name.trim(), phone.trim(), email.trim());
 
