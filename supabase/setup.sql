@@ -94,7 +94,15 @@ SELECT * FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM barbers LIMIT 1);
 
 -- ─────────────────────────────────────────────
--- 4. CREATE STAFF USER — Aiden's login
+-- 4. ENABLE REALTIME — required for postgres_changes subscriptions
+-- ─────────────────────────────────────────────
+-- Supabase Realtime only delivers events for tables in this publication.
+-- Without these lines the dashboard Realtime channels silently receive nothing.
+ALTER PUBLICATION supabase_realtime ADD TABLE appointments;
+ALTER PUBLICATION supabase_realtime ADD TABLE queue_entries;
+
+-- ─────────────────────────────────────────────
+-- 5. CREATE STAFF USER — Aiden's login
 -- Run this AFTER the above, in a separate SQL Editor tab:
 --
 --   select auth.create_user(

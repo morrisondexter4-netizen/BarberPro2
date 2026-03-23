@@ -54,28 +54,53 @@ export function BarberProProvider({ children }: { children: ReactNode }) {
       .finally(() => setHydrated(true));
   }, []);
 
-  // Realtime subscription — keep queue in sync when customers join/leave or offer status changes
+  // Helper: re-fetch both queue and appointments from Supabase in one shot.
+  // Called by Realtime callbacks, visibility handler, and poll timer.
+  const refreshAll = () => {
+    loadQueueAsync().then(setQueue).catch(console.error);
+    loadAppointmentsAsync().then(setAppointments).catch(console.error);
+  };
+
+  // Realtime — queue channel (known-working).
+  // accept_queue_offer DELETEs the queue entry AND INSERTs an appointment in
+  // the same transaction, so any queue change is a signal to also refresh
+  // appointments.  This makes the new appointment appear instantly even when
+  // the appointments table is NOT in supabase_realtime.
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     const channel = getSupabase()
       .channel("dashboard-queue")
-      .on("postgres_changes" as any, { event: "*", schema: "public", table: "queue_entries" }, () => {
-        loadQueueAsync().then(setQueue).catch(console.error);
-      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "queue_entries" }, refreshAll)
       .subscribe();
     return () => { getSupabase().removeChannel(channel); };
   }, []);
 
-  // Realtime subscription — pick up new appointments when customers confirm from status page
+  // Realtime — appointments channel (fires only when the table is in
+  // supabase_realtime publication; harmless no-op otherwise).
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
     const channel = getSupabase()
       .channel("dashboard-appointments")
-      .on("postgres_changes" as any, { event: "INSERT", schema: "public", table: "appointments" }, () => {
-        loadAppointmentsAsync().then(setAppointments).catch(console.error);
-      })
+      .on("postgres_changes" as any, { event: "*", schema: "public", table: "appointments" }, refreshAll)
       .subscribe();
     return () => { getSupabase().removeChannel(channel); };
+  }, []);
+
+  // Visibility refetch — when the barber switches back to the tab, refresh
+  // immediately so any changes made while away appear without waiting for poll.
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const onVisible = () => { if (document.visibilityState === "visible") refreshAll(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
+  // Polling fallback — safety net for dropped Realtime events / transient
+  // disconnects.  30s is enough since the primary path is event-driven above.
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const poll = setInterval(refreshAll, 30_000);
+    return () => clearInterval(poll);
   }, []);
 
   // localStorage cache — kept as fallback. Only fires after hydration to avoid
