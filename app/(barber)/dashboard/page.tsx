@@ -378,14 +378,6 @@ export default function DashboardPage() {
     };
   }, [customQueueDragId]);
 
-  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0];
-  if (!selectedBarber) return null; // barbers still loading
-
-  // Include 'waiting' and 'offered' entries — offered entries show "Awaiting confirmation"
-  const barberQueue = queue
-    .filter((e) => !e.barberId || e.barberId === selectedBarberId || e.offeredBarberId === selectedBarberId)
-    .sort((a, b) => a.position - b.position);
-
   const barberAppointments = useMemo(() => {
     const base = appointments.filter(
       (a) =>
@@ -405,6 +397,14 @@ export default function DashboardPage() {
   const activeAppointment = activeAppointmentId
     ? barberAppointments.find((a) => a.id === activeAppointmentId) ?? null
     : null;
+
+  const selectedBarber = barbers.find((b) => b.id === selectedBarberId) ?? barbers[0];
+  if (!selectedBarber) return null;
+
+  // Include 'waiting' and 'offered' entries — offered entries show "Awaiting confirmation"
+  const barberQueue = queue
+    .filter((e) => !e.barberId || e.barberId === selectedBarberId || e.offeredBarberId === selectedBarberId)
+    .sort((a, b) => a.position - b.position);
 
   const isRescheduleDragging =
     activeDragId !== null && activeDragId.startsWith("reschedule-");
