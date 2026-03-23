@@ -13,6 +13,7 @@ import {
   localDateString,
 } from "@/lib/settings";
 import type { Appointment, Barber, Service } from "@/lib/types";
+import type { AppointmentSlot } from "@/lib/settings";
 
 const BARBER_DOT: Record<string, string> = {
   blue: "bg-blue-500",
@@ -21,8 +22,6 @@ const BARBER_DOT: Record<string, string> = {
   amber: "bg-amber-500",
   rose: "bg-rose-500",
 };
-
-type AppointmentSlot = { barberId: string; date: string; startTime: string; endTime: string; status: string };
 
 function timeToMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
@@ -94,9 +93,11 @@ export default function BookAppointmentPage() {
         setServices(s);
         if (settings.shopName) setShopName(settings.shopName);
         if (settings.hours) setShopHours(settings.hours);
-        setExistingApts(apts.map(({ barberId, date, startTime, endTime, status }) => ({
-          barberId, date, startTime, endTime, status,
-        })));
+        setExistingApts(
+          apts
+            .filter((a) => a.status !== "cancelled")
+            .map(({ barberId, date, startTime, endTime, status }) => ({ barberId, date, startTime, endTime, status }))
+        );
       } catch (err) {
         console.error("Failed to load booking data", err);
       } finally {
@@ -144,7 +145,7 @@ export default function BookAppointmentPage() {
     const lunchEnd = selectedBarber.lunchBreak ? timeToMinutes(selectedBarber.lunchBreak.end) : null;
 
     const dayApts = existingApts.filter(
-      (a) => a.barberId === selectedBarber.id && a.date === selectedDate && a.status !== "cancelled"
+      (a) => a.barberId === selectedBarber.id && a.date === selectedDate
     );
 
     const slots: string[] = [];
@@ -167,35 +168,7 @@ export default function BookAppointmentPage() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const startMin = timeToMinutes(selectedTime);
-      const duration = getServiceDuration(selectedService, selectedBarber);
-      const endMin = startMin + duration;
-      const endTime = minutesToTime(endMin);
-
-      const dow = new Date(selectedDate + "T12:00:00").getDay();
-      const shopDay = shopHours[DAY_KEYS[dow]];
-      const shopOpenMin = shopDay?.open && shopDay.openTime ? timeToMinutes(shopDay.openTime) : null;
-      const shopCloseMin = shopDay?.open && shopDay.closeTime ? timeToMinutes(shopDay.closeTime) : null;
-      const { effectiveEnd } = getEffectiveBounds(
-        timeToMinutes(selectedBarber.startTime),
-        timeToMinutes(selectedBarber.endTime),
-        shopOpenMin,
-        shopCloseMin,
-      );
-      if (endMin > effectiveEnd) {
-        setSubmitError("This service won't fit before closing time. Please choose an earlier slot.");
-        setSubmitting(false);
-        return;
-      }
-      if (selectedBarber.lunchBreak) {
-        const lStart = timeToMinutes(selectedBarber.lunchBreak.start);
-        const lEnd = timeToMinutes(selectedBarber.lunchBreak.end);
-        if (startMin < lEnd && endMin > lStart) {
-          setSubmitError("This time overlaps with the barber's lunch break. Please choose a different slot.");
-          setSubmitting(false);
-          return;
-        }
-      }
+      const endTime = minutesToTime(timeToMinutes(selectedTime) + getServiceDuration(selectedService, selectedBarber));
 
       const customer = upsertCustomer(name.trim(), phone.trim(), email.trim());
 
@@ -339,7 +312,7 @@ export default function BookAppointmentPage() {
                 >
                   <div>
                     <span className="text-white font-medium">{s.name}</span>
-                    <span className="text-gray-500 text-sm ml-2">{getServiceDuration(s, selectedBarber ?? undefined)} min</span>
+                    <span className="text-gray-500 text-sm ml-2">{getServiceDuration(s, selectedBarber!)} min</span>
                   </div>
                   <span className="text-white font-semibold">${s.price}</span>
                 </button>
