@@ -221,8 +221,8 @@ export default function DashboardPage() {
     }
   }, [barbers]);
 
-  const [activeAppointment, setActiveAppointment] =
-    useState<Appointment | null>(null);
+  const [activeAppointmentId, setActiveAppointmentId] =
+    useState<string | null>(null);
   const [pendingAppointment, setPendingAppointment] = useState<{
     appointment: Appointment;
     queueEntryId: string;
@@ -401,6 +401,10 @@ export default function DashboardPage() {
     }
     return base;
   })();
+
+  const activeAppointment = activeAppointmentId
+    ? barberAppointments.find((a) => a.id === activeAppointmentId) ?? null
+    : null;
 
   const isRescheduleDragging =
     activeDragId !== null && activeDragId.startsWith("reschedule-");
@@ -650,7 +654,7 @@ export default function DashboardPage() {
   ) {
     const apt = appointments.find((a) => a.id === appointmentId);
     updateAppointmentStatus(appointmentId, status, paymentMethod);
-    setActiveAppointment(null);
+    setActiveAppointmentId(null);
 
     if (!apt) return;
     if (status === "no-show" && apt.status !== "no-show") {
@@ -660,7 +664,7 @@ export default function DashboardPage() {
 
   function handleDeleteAppointment(appointmentId: string) {
     deleteAppointment(appointmentId);
-    setActiveAppointment(null);
+    setActiveAppointmentId(null);
   }
 
   return (
@@ -695,7 +699,7 @@ export default function DashboardPage() {
               appointments={barberAppointments}
               barber={selectedBarber}
               services={services}
-              onAppointmentClick={(apt) => setActiveAppointment(apt)}
+              onAppointmentClick={(apt) => setActiveAppointmentId(apt.id)}
               isDragging={isTimelineDragging}
               hoveredNoShowId={hoveredNoShowId}
               draggedServiceId={draggedServiceId}
@@ -712,7 +716,6 @@ export default function DashboardPage() {
               totalWaiting={barberQueue.length}
               onCardMouseDown={handleQueueMouseDown}
               onRetractOffer={retractOffer}
-              onRemove={removeFromQueue}
             />
           </div>
         </div>
@@ -722,10 +725,12 @@ export default function DashboardPage() {
           <AppointmentPopup
             appointment={activeAppointment}
             barber={selectedBarber}
-            service={services.find((s) => s.id === activeAppointment.serviceId)}
+            service={services.find(
+              (s) => s.id === activeAppointment.serviceId,
+            )}
             onStatusChange={handleStatusChange}
             onDelete={handleDeleteAppointment}
-            onClose={() => setActiveAppointment(null)}
+            onClose={() => setActiveAppointmentId(null)}
           />
         )}
 

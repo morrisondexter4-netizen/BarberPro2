@@ -35,8 +35,8 @@ export default function SchedulePage() {
     const day = new Date().getDay();
     return day === 0 ? 6 : day - 1;
   });
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<Appointment | null>(null);
+  const [selectedAppointmentId, setSelectedAppointmentId] =
+    useState<string | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [dropReject, setDropReject] = useState<{
     time: string;
@@ -58,6 +58,10 @@ export default function SchedulePage() {
     deleteAppointment,
   } = useBarberPro();
 
+  const selectedAppointment = selectedAppointmentId
+    ? allAppointments.find((a) => a.id === selectedAppointmentId) ?? null
+    : null;
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
@@ -73,7 +77,7 @@ export default function SchedulePage() {
 
   const handleDelete = (id: string) => {
     deleteAppointment(id);
-    setSelectedAppointment(null);
+    setSelectedAppointmentId(null);
   };
 
   const getWeekDates = (offset: number): string[] => {
@@ -333,7 +337,7 @@ export default function SchedulePage() {
           barbers={barbers}
           appointments={dayAppointments}
           services={services}
-          onAppointmentClick={setSelectedAppointment}
+          onAppointmentClick={(apt) => setSelectedAppointmentId(apt.id)}
           onDragTimeChange={handleDragTimeChange}
           isDragging={isDragging}
           draggedServiceId={draggedServiceId}
@@ -346,11 +350,15 @@ export default function SchedulePage() {
         {selectedAppointment && (
           <ScheduleAppointmentPopup
             appointment={selectedAppointment}
-            barber={barbers.find((b) => b.id === selectedAppointment.barberId) ?? barbers[0]!}
-            service={services.find((s) => s.id === selectedAppointment.serviceId)}
+            barber={
+barbers.find((b) => b.id === selectedAppointment.barberId) ?? barbers[0]!
+            }
+            service={services.find(
+              (s) => s.id === selectedAppointment.serviceId
+            )}
             onStatusChange={handleStatusChange}
             onDelete={handleDelete}
-            onClose={() => setSelectedAppointment(null)}
+            onClose={() => setSelectedAppointmentId(null)}
           />
         )}
       </div>

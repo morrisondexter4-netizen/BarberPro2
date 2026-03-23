@@ -53,13 +53,15 @@ function DraggableAppointmentCard({
     ((eh * 60 + em - (sh * 60 + sm)) / 60) * HOUR_HEIGHT
   );
 
+  const isNoShow = apt.status === "no-show";
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       className={`absolute left-1 right-1 rounded-lg px-2 py-1 cursor-grab active:cursor-grabbing overflow-hidden transition-all hover:brightness-95 ${
-        isDragging ? "opacity-40" : ""
+        isDragging ? "opacity-40" : isNoShow ? "opacity-50" : ""
       }`}
       style={{
         top,
@@ -69,11 +71,22 @@ function DraggableAppointmentCard({
       }}
       onClick={onClick}
     >
-      <p className="text-xs font-semibold text-gray-900 truncate">
-        {apt.clientName}
-      </p>
+      <div className="flex items-center gap-1">
+        <p className={`text-xs font-semibold text-gray-900 truncate ${isNoShow ? "line-through" : ""}`}>
+          {apt.clientName}
+        </p>
+        {apt.status === "checked-in" && (
+          <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+        )}
+        {apt.status === "paid" && (
+          <span className="text-[9px] font-bold text-green-600 bg-green-100 rounded px-0.5 flex-shrink-0">$</span>
+        )}
+        {apt.fromQueue && (
+          <span className="text-[9px] font-bold text-blue-600 bg-blue-100 rounded px-0.5 flex-shrink-0">Q</span>
+        )}
+      </div>
       {height >= 44 && (
-        <p className="text-xs text-gray-500 truncate">{service?.name}</p>
+        <p className={`text-xs text-gray-500 truncate ${isNoShow ? "line-through" : ""}`}>{service?.name}</p>
       )}
     </div>
   );
