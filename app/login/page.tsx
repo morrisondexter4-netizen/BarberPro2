@@ -5,8 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { isSupabaseConfigured, getSupabase } from "@/lib/supabase";
 
 const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-const DEMO_EMAIL = "aiden@barberpro.com";
-const DEMO_PASSWORD = "BarberPro1!";
+const DEMO_EMAIL =
+  process.env.NEXT_PUBLIC_DEMO_EMAIL?.trim() || "aiden@barberpro.com";
+const DEMO_PASSWORD =
+  process.env.NEXT_PUBLIC_DEMO_PASSWORD || "BarberPro1!";
 
 function LoginForm() {
   const router = useRouter();
