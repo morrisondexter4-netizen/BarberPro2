@@ -429,7 +429,9 @@ export default function DashboardPage() {
     const entry = queueRef.current.find((q) => q.id === entryId);
     if (!entry) return;
 
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const handleEl = e.currentTarget as HTMLElement;
+    const cardEl = handleEl.closest("[data-queue-card]") as HTMLElement | null;
+    const rect = (cardEl ?? handleEl).getBoundingClientRect();
     customDragOffsetRef.current = {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,

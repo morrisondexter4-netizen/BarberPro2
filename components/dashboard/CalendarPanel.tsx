@@ -93,32 +93,38 @@ function BookedAppointmentCard({
       {...listeners}
       style={style}
       onClick={onClick}
-      className={`h-full w-full rounded-lg border-l-4 px-2.5 py-1.5 overflow-hidden cursor-grab active:cursor-grabbing hover:brightness-95 transition-all duration-150 flex flex-col justify-center ${
+      className={`h-full w-full min-w-0 rounded-lg border-l-4 px-2.5 py-1.5 overflow-hidden cursor-grab active:cursor-grabbing hover:brightness-95 transition-all duration-150 flex flex-col justify-start gap-0.5 ${
         isNoShow ? "opacity-50" : ""
       }`}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex min-w-0 w-full items-center gap-1.5">
         <span
-          className={`font-medium text-sm text-gray-900 truncate ${isNoShow ? "line-through" : ""}`}
+          className={`min-w-0 flex-1 font-medium text-sm text-gray-900 truncate ${isNoShow ? "line-through" : ""}`}
         >
           {appointment.clientName}
         </span>
-        {appointment.status === "checked-in" && (
-          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" />
-        )}
-        {appointment.status === "paid" && (
-          <span className="text-[10px] font-bold text-green-600 bg-green-100 rounded px-1 flex-shrink-0">
-            $
-          </span>
-        )}
-        {appointment.fromQueue && (
-          <span className="text-[10px] font-bold text-blue-600 bg-blue-100 rounded px-1 flex-shrink-0">
-            Q
+        {(appointment.status === "checked-in" ||
+          appointment.status === "paid" ||
+          appointment.fromQueue) && (
+          <span className="flex flex-shrink-0 items-center gap-1">
+            {appointment.status === "checked-in" && (
+              <span className="w-2 h-2 rounded-full bg-green-500" />
+            )}
+            {appointment.status === "paid" && (
+              <span className="text-[10px] font-bold text-green-600 bg-green-100 rounded px-1">
+                $
+              </span>
+            )}
+            {appointment.fromQueue && (
+              <span className="text-[10px] font-bold text-blue-600 bg-blue-100 rounded px-1">
+                Q
+              </span>
+            )}
           </span>
         )}
       </div>
       <p
-        className={`text-xs opacity-75 truncate ${isNoShow ? "line-through" : ""}`}
+        className={`min-w-0 text-xs opacity-75 truncate ${isNoShow ? "line-through" : ""}`}
       >
         {serviceName}
       </p>

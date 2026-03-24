@@ -41,7 +41,10 @@ function QueueCard({
 
   if (isOffered) {
     return (
-      <div className="bg-amber-50 rounded-xl border border-amber-200 border-l-4 border-l-amber-400 p-3 mb-2 cursor-default">
+      <div
+        data-queue-card
+        className="bg-amber-50 rounded-xl border border-amber-200 border-l-4 border-l-amber-400 p-3 mb-2 cursor-default"
+      >
         <div className="flex items-start gap-2">
           <div className="flex-shrink-0 mt-0.5">
             <span className="block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse mt-1" />
@@ -99,6 +102,7 @@ function QueueCard({
 
   return (
     <div
+      data-queue-card
       className={`bg-white rounded-xl border p-3 mb-2 transition-all duration-150 select-none ${
         isNext
           ? "border-l-4 border-l-amber-400 border-gray-200 shadow-md"
